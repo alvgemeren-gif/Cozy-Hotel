@@ -32,7 +32,6 @@ module.exports = {
             .setColor(0x95a5a6) // Ghostly gray color
             .setDescription(message)
             .setFooter({ 
-                text: '👻 Verzonden door een geest...', 
                 iconURL: 'https://cdn.discordapp.com/emojis/677938877752680459.png'
             })
             .setTimestamp();
