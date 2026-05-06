@@ -6,12 +6,16 @@ const deployCommands = require('./deploy/deployCommands');
 const { Client, Collection, Events, GatewayIntentBits, REST, Routes } = require('discord.js');
 const getMeme = require('./commands/getMeme/getMeme');
 const minigamesCommand = require('./commands/minigames/minigames');
+const casinoCommand = require('./commands/casino/casino');
 
 // Store counting game state per guild
 const countingGames = new Map();
 
 // Use the shared minigames map from minigames.js
 const minigames = minigamesCommand.activeGames;
+
+// Use the shared balances map from casino.js
+const balances = casinoCommand.balances;
 
 // Import helper functions from minigames.js
 const { 
