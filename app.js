@@ -5,28 +5,21 @@ const http = require('http');
 const deployCommands = require('./deploy/deployCommands');
 const { Client, Collection, Events, GatewayIntentBits, REST, Routes } = require('discord.js');
 const getMeme = require('./commands/getMeme/getMeme');
-const minigamesCommand = require('./commands/minigames/minigames');
 const casinoCommand = require('./commands/casino/casino');
+const welcomeCommand = require('./commands/welcome/welcome');
+const goodbyeCommand = require('./commands/goodbye/goodbye');
+const autoroleCommand = require('./commands/autorole/autorole');
 
 // Store counting game state per guild
 const countingGames = new Map();
 
-// Use the shared minigames map from minigames.js
-const minigames = minigamesCommand.activeGames;
-
 // Use the shared balances map from casino.js
 const balances = casinoCommand.balances;
 
-// Import helper functions from minigames.js
-const { 
-	createMinesweeperEmbed, 
-	createMinesweeperButtons, 
-	createGalgjeEmbed, 
-	createGalgjeButtons, 
-	createWordleEmbed, 
-	evaluateWordleGuess, 
-	wordleWords 
-} = minigamesCommand;
+// Use the shared settings from welcome and goodbye commands
+const welcomeSettings = welcomeCommand.welcomeSettings;
+const goodbyeSettings = goodbyeCommand.goodbyeSettings;
+const autoroleSettings = autoroleCommand.autoroleSettings;
 
 const PORT = process.env.PORT || 3000;
 http.createServer((req, res) => {
@@ -171,6 +164,47 @@ client.on(Events.MessageCreate, async message => {
 	}
 });
 
+// Handle welcome messages and autorole when members join
+client.on(Events.GuildMemberAdd, async member => {
+	const guildId = member.guild.id;
+	
+	// Handle autorole - assign role automatically
+	await autoroleCommand.assignAutorole(member);
+	
+	// Check if welcome messages are enabled for this guild
+	if (!welcomeSettings.has(guildId)) return;
+	
+	const settings = welcomeSettings.get(guildId);
+	const welcomeChannel = member.guild.channels.cache.get(settings.channelId);
+	
+	if (!welcomeChannel) {
+		console.warn(`Welcome channel not found for guild ${guildId}`);
+		return;
+	}
+	
+	// Send welcome message
+	welcomeCommand.sendWelcomeMessage(member, welcomeChannel, settings.message);
+});
+
+// Handle goodbye messages when members leave
+client.on(Events.GuildMemberRemove, async member => {
+	const guildId = member.guild.id;
+	
+	// Check if goodbye messages are enabled for this guild
+	if (!goodbyeSettings.has(guildId)) return;
+	
+	const settings = goodbyeSettings.get(guildId);
+	const goodbyeChannel = member.guild.channels.cache.get(settings.channelId);
+	
+	if (!goodbyeChannel) {
+		console.warn(`Goodbye channel not found for guild ${guildId}`);
+		return;
+	}
+	
+	// Send goodbye message
+	goodbyeCommand.sendGoodbyeMessage(member.user, member.guild, goodbyeChannel, settings.message);
+});
+
 	client.on(Events.InteractionCreate, async interaction => {
 		// Handle modal submissions for reviews
 		if (interaction.isModalSubmit()) {
@@ -259,214 +293,6 @@ client.on(Events.MessageCreate, async message => {
 			// This is handled by the review command itself, so we just ignore it here
 			// The review command sets up its own collector
 			return;
-		}
-
-		// Handle button interactions for minigames
-		if (interaction.isButton()) {
-			// Wordle guess button - show modal for entering guess
-			if (interaction.customId.startsWith('wordle-guess-')) {
-				const userId = interaction.customId.replace('wordle-guess-', '');
-				const game = minigames.get(`wordle-${userId}`);
-				
-				if (!game || game.status !== 'active') {
-					return interaction.reply({ content: 'No active Wordle game found. Use /minigames wordle to start a new game.', ephemeral: true });
-				}
-				
-				// Check if game belongs to this user
-				if (interaction.user.id !== userId) {
-					return interaction.reply({ content: 'This is not your game!', ephemeral: true });
-				}
-				
-				// Show modal for guess
-				const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
-				
-				const modal = new ModalBuilder()
-					.setCustomId(`wordle-modal-${userId}`)
-					.setTitle('Wordle - Enter Your Guess');
-				
-				const guessInput = new TextInputBuilder()
-					.setCustomId('wordle-guess-input')
-					.setLabel('Enter a 5-letter word')
-					.setStyle(TextInputStyle.Short)
-					.setPlaceholder('e.g., CRANE')
-					.setMaxLength(5)
-					.setRequired(true);
-				
-				const firstRow = new ActionRowBuilder().addComponents(guessInput);
-				modal.addComponents(firstRow);
-				
-				await interaction.showModal(modal);
-				return;
-			}
-
-			// Minesweeper buttons
-			if (interaction.customId.startsWith('mine-')) {
-				const userId = interaction.user.id;
-				const game = minigames.get(`minesweeper-${userId}`);
-				if (!game || game.status !== 'active') {
-					return interaction.reply({ content: 'No active Minesweeper game found. Use /minigames minesweeper to start a new game.', ephemeral: true });
-				}
-
-				const parts = interaction.customId.split('-');
-				const r = parseInt(parts[1]);
-				const c = parseInt(parts[2]);
-				const key = `${r}-${c}`;
-
-				if (game.revealed.has(key) || game.flagged.has(key)) {
-					return interaction.reply({ content: 'This cell is already revealed or flagged!', ephemeral: true });
-				}
-
-				const cell = game.grid[r][c];
-
-				if (cell.isMine) {
-					// Hit a mine - game over
-					game.status = 'lost';
-					game.revealed.add(key);
-
-					// Reveal all mines
-					for (let mr = 0; mr < game.rows; mr++) {
-						for (let mc = 0; mc < game.cols; mc++) {
-							if (game.grid[mr][mc].isMine) {
-								game.revealed.add(`${mr}-${mc}`);
-							}
-						}
-					}
-
-					const embed = createMinesweeperEmbed(game);
-					const components = createMinesweeperButtons(game);
-
-					return interaction.update({
-						content: '💥 **BOOM!** You hit a mine! Game over!',
-						embeds: [embed],
-						components: components
-					});
-				}
-
-				// Reveal the cell
-				game.revealed.add(key);
-
-				// Check if won (all non-mine cells revealed)
-				const totalSafe = game.rows * game.cols - game.mineCount;
-				if (game.revealed.size === totalSafe) {
-					game.status = 'won';
-				}
-
-				const embed = createMinesweeperEmbed(game);
-				const components = createMinesweeperButtons(game);
-
-				await interaction.update({
-					content: '💣 **Minesweeper** - Keep going!',
-					embeds: [embed],
-					components: components
-				});
-				return;
-			}
-
-			// Minesweeper mode toggle
-			if (interaction.customId === 'mine-mode-toggle') {
-				return interaction.reply({ content: 'Flag mode toggled! (Feature coming soon)', ephemeral: true });
-			}
-
-			// Galgje (Hangman) letter buttons
-			if (interaction.customId.startsWith('galgje-')) {
-				const userId = interaction.user.id;
-				const game = minigames.get(`galgje-${userId}`);
-				if (!game || game.status !== 'active') {
-					return interaction.reply({ content: 'No active Galgje game found. Use /minigames galgje to start a new game.', ephemeral: true });
-				}
-
-				const letter = interaction.customId.replace('galgje-', '');
-
-				if (game.guessedLetters.has(letter)) {
-					return interaction.reply({ content: 'You already guessed that letter!', ephemeral: true });
-				}
-
-				game.guessedLetters.add(letter);
-
-				// Check if letter is in the word
-				if (!game.targetWord.includes(letter)) {
-					game.wrongGuesses++;
-				}
-
-				// Check win condition
-				let won = true;
-				for (const char of game.targetWord) {
-					if (!game.guessedLetters.has(char)) {
-						won = false;
-						break;
-					}
-				}
-
-				if (won) {
-					game.status = 'won';
-				} else if (game.wrongGuesses >= game.maxWrongGuesses) {
-					game.status = 'lost';
-				}
-
-				const embed = createGalgjeEmbed(game);
-				const components = createGalgjeButtons(game);
-
-				await interaction.update({
-					content: game.status === 'won' ? '🎉 You won!' : game.status === 'lost' ? '😔 Game over!' : '🎭 **Galgje** - Keep guessing!',
-					embeds: [embed],
-					components: components
-				});
-				return;
-			}
-		}
-
-		// Handle modal submissions for minigames
-		if (interaction.isModalSubmit()) {
-			// Wordle modal
-			if (interaction.customId.startsWith('wordle-modal-')) {
-				const userId = interaction.customId.replace('wordle-modal-', '');
-				const game = minigames.get(`wordle-${userId}`);
-				if (!game || game.status !== 'active') {
-					return interaction.reply({ content: 'No active Wordle game found. Use /minigames wordle to start a new game.', ephemeral: true });
-				}
-
-				const guess = interaction.fields.getTextInputValue('wordle-guess-input').toLowerCase();
-
-				// Validate guess
-				if (guess.length !== 5) {
-					return interaction.reply({ content: 'The word must be 5 letters long!', ephemeral: true });
-				}
-
-				if (!wordleWords.includes(guess)) {
-					return interaction.reply({ content: 'That word is not in the word list! Try another 5-letter word.', ephemeral: true });
-				}
-
-				// Evaluate guess
-				const result = evaluateWordleGuess(guess, game.targetWord);
-				game.guesses.push({ word: guess, result: result });
-
-				// Check win condition
-				if (result === '🟩🟩🟩🟩🟩') {
-					game.status = 'won';
-				} else if (game.guesses.length >= game.maxGuesses) {
-					game.status = 'lost';
-				}
-
-				const embed = createWordleEmbed(game);
-
-				// If game is over, remove the button
-				const components = game.status === 'active' ? [
-					new ActionRowBuilder()
-						.addComponents(
-							new ButtonBuilder()
-								.setCustomId(`wordle-guess-${userId}`)
-								.setLabel('Make a Guess')
-								.setStyle(ButtonStyle.Primary)
-						)
-				] : [];
-
-				await interaction.update({
-					content: game.status === 'won' ? '🎉 You won!' : game.status === 'lost' ? '😔 Game over!' : '🟩🟨⬛ **Wordle** - Keep guessing!',
-					embeds: [embed],
-					components: components
-				});
-				return;
-			}
 		}
 
 		// Handle chat input commands
