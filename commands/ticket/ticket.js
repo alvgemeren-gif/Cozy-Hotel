@@ -39,9 +39,9 @@ module.exports = {
             .setPlaceholder('Select the type of ticket...')
             .addOptions([
                 {
-                    label: '📝 Sollicitatie',
+                    label: '📝 Application',
                     description: 'Apply for a staff position',
-                    value: 'sollicitatie'
+                    value: 'application'
                 },
                 {
                     label: '🤝 Partnership',
@@ -49,12 +49,12 @@ module.exports = {
                     value: 'partnership'
                 },
                 {
-                    label: '❓ Vraag',
+                    label: '❓ Question',
                     description: 'Ask a general question',
                     value: 'question'
                 },
                 {
-                    label: '⚠️ Klacht',
+                    label: '⚠️ Complaint',
                     description: 'Submit a complaint',
                     value: 'complaint'
                 }
@@ -69,24 +69,24 @@ module.exports = {
             .setDescription(customDescription)
             .addFields({
                 name: '📋 Ticket Types',
-                value: '**📝 Sollicitatie** - Solliciteer voor een staff positie\n' +
-                       '**🤝 Partnership** - Vraag een partnerschap aan\n' +
-                       '**❓ Vraag** - Stel een algemene vraag\n' +
-                       '**⚠️ Klacht** - Dien een klacht in\n\n' +
-                       'Kies hierboven het type ticket dat bij jouw situatie past.'
+                value: '**📝 Application** - Apply for a staff position\n' +
+                       '**🤝 Partnership** - Propose a partnership\n' +
+                       '**❓ Question** - Ask a general question\n' +
+                       '**⚠️ Complaint** - Submit a complaint\n\n' +
+                       'Select the ticket type that best fits your situation above.'
             })
             .setFooter({ text: 'Cozy Hotel Support Team' })
             .setTimestamp();
 
         // Send the ticket panel
         await channel.send({
-            content: '🎫 **Support Panel** - Selecteer hieronder het type ticket:',
+            content: '🎫 **Support Panel** - Select the type of ticket below:',
             embeds: [embed],
             components: [row]
         });
 
         await interaction.reply({
-            content: `✅ Ticket panel verzonden in ${channel}!`,
+            content: `✅ Ticket panel sent in ${channel}!`,
             ephemeral: true
         });
     }
