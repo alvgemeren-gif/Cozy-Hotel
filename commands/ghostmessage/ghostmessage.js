@@ -1,52 +1,42 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 
-module.exports = {
-    data: new SlashCommandBuilder()
-        .setName('ghostmessage')
-        .setDescription('Send a message as a ghost (your identity remains hidden)')
-        .addStringOption(option =>
-            option
-                .setName('message')
-                .setDescription('The message you want the bot to send')
-                .setRequired(true)
-        )
-        .addAttachmentOption(option =>
-            option
-                .setName('image')
-                .setDescription('Attach an image to the ghost message')
-                .setRequired(false)
-        )
-        .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages),
+const client = new Client({
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+});
 
-    async execute(interaction) {
-        const message = interaction.options.getString('message');
-        const attachment = interaction.options.getAttachment('image');
-        
-        // Acknowledge the user's input privately
-        await interaction.reply({
-            ephemeral: true
-        });
-        
-        // Create the ghost message
-        const embed = new EmbedBuilder()
-            .setColor(0x95a5a6) // Ghostly gray color
-            .setDescription(message)
-            .setFooter({ 
-                text: 'Hotel Vibe',
-                iconURL: 'https://cdn.discordapp.com/emojis/677938877752680459.png'
-            })
-            .setTimestamp();
-        
-        // Add image if provided
-        if (attachment) {
-            embed.setImage(attachment.url);
+const PREFIX = '!';
+
+client.on('messageCreate', async (message) => {
+    // Voorkom dat de bot op zichzelf reageert of berichten zonder prefix negeert
+    if (message.author.bot || !message.content.startsWith(PREFIX)) return;
+
+    const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+    const command = args.shift().toLowerCase();
+
+    if (command === 'ghostmessage') {
+        const ghostText = args.join(' ');
+
+        if (!ghostText) {
+            return message.reply("The ghost has nothing to say... (Please provide a message).");
         }
-        
-        // Send the ghost message to the channel
-        await interaction.channel.send({
-            embeds: [embed],
-            username: 'Ghost',
-            avatarURL: 'https://i.imgur.com/6KZ7qYh.png'
-        });
+
+        // 1. Verwijder het bericht van de gebruiker direct
+        try {
+            await message.delete();
+        } catch (err) {
+            console.error("Kon bericht niet verwijderen:", err);
+        }
+
+        // 2. Verstuur het bericht als 'The Ghost'
+        // We gebruiken een Embed om het een bovennatuurlijk tintje te geven
+        const ghostEmbed = new EmbedBuilder()
+            .setColor('#f0f0f0') // Spookachtig wit/grijs
+            .setAuthor({ name: 'A Restless Spirit', iconURL: 'https://i.imgur.com/8vM87Y4.png' }) // Gebruik een ghost icon
+            .setDescription(`*"${ghostText}"*`)
+            .setFooter({ text: 'Sent from the afterlife...' });
+
+        await message.channel.send({ embeds: [ghostEmbed] });
     }
-};
+});
+
+client.login('JOUW_BOT_TOKEN_HIER');
