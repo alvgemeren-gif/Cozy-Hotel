@@ -201,9 +201,10 @@ client.on(Events.GuildMemberAdd, async member => {
 	if (!welcomeSettings.has(guildId)) return;
 	
 	const settings = welcomeSettings.get(guildId);
-	const welcomeChannel = member.guild.channels.cache.get(settings.channelId);
+	const welcomeChannel = member.guild.channels.cache.get(settings.channelId)
+		|| await member.guild.channels.fetch(settings.channelId).catch(() => null);
 	
-	if (!welcomeChannel) {
+	if (!welcomeChannel || !welcomeChannel.isTextBased()) {
 		console.warn(`Welcome channel not found for guild ${guildId}`);
 		return;
 	}
@@ -220,9 +221,10 @@ client.on(Events.GuildMemberRemove, async member => {
 	if (!goodbyeSettings.has(guildId)) return;
 	
 	const settings = goodbyeSettings.get(guildId);
-	const goodbyeChannel = member.guild.channels.cache.get(settings.channelId);
+	const goodbyeChannel = member.guild.channels.cache.get(settings.channelId)
+		|| await member.guild.channels.fetch(settings.channelId).catch(() => null);
 	
-	if (!goodbyeChannel) {
+	if (!goodbyeChannel || !goodbyeChannel.isTextBased()) {
 		console.warn(`Goodbye channel not found for guild ${guildId}`);
 		return;
 	}
