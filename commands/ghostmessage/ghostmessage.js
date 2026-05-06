@@ -32,6 +32,7 @@ module.exports = {
             .setColor(0x95a5a6) // Ghostly gray color
             .setDescription(message)
             .setFooter({ 
+                text: 'Hotel Vibe',
                 iconURL: 'https://cdn.discordapp.com/emojis/677938877752680459.png'
             })
             .setTimestamp();
@@ -43,7 +44,9 @@ module.exports = {
         
         // Send the ghost message to the channel
         await interaction.channel.send({
-            embeds: [embed]
+            embeds: [embed],
+            username: 'Ghost',
+            avatarURL: 'https://i.imgur.com/6KZ7qYh.png'
         });
     }
 };

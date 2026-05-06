@@ -2,48 +2,64 @@ const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('disc
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('ghostmessage')
-        .setDescription('Send a message as a ghost (your identity remains hidden)')
+        .setName('welcome')
+        .setDescription('Welcome a guest to our hotel!')
         .addStringOption(option =>
             option
-                .setName('message')
-                .setDescription('The message you want the bot to send')
+                .setName('name')
+                .setDescription('The name of the guest')
                 .setRequired(true)
-        )
-        .addAttachmentOption(option =>
-            option
-                .setName('image')
-                .setDescription('Attach an image to the ghost message')
-                .setRequired(false)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages),
 
     async execute(interaction) {
-        const message = interaction.options.getString('message');
-        const attachment = interaction.options.getAttachment('image');
+        const name = interaction.options.getString('name');
         
-        // Acknowledge the user's input privately
-        await interaction.reply({
-            ephemeral: true
-        });
-        
-        // Create the ghost message
+        // Create the welcome message
         const embed = new EmbedBuilder()
             .setColor(0x95a5a6) // Ghostly gray color
             .setTitle('Welcome to our hotel!')
-            .setDescription(message)
+            .setDescription(`Welcome, ${name}! We're glad to have you here.`)
             .setFooter({ 
                 text: 'Hotel Vibe',
                 iconURL: 'https://cdn.discordapp.com/emojis/677938877752680459.png'
             })
             .setTimestamp();
         
-        // Add image if provided
-        if (attachment) {
-            embed.setImage(attachment.url);
-        }
+        // Send the welcome message to the channel
+        await interaction.channel.send({
+            embeds: [embed]
+        });
+    }
+};
+
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('leave')
+        .setDescription('Bid farewell to a guest from our hotel!')
+        .addStringOption(option =>
+            option
+                .setName('name')
+                .setDescription('The name of the guest')
+                .setRequired(true)
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages),
+
+    async execute(interaction) {
+        const name = interaction.options.getString('name');
         
-        // Send the ghost message to the channel
+        // Create the departure message
+        const embed = new EmbedBuilder()
+            .setColor(0x95a5a6) // Ghostly gray color
+            .setTitle('Departure from our hotel!')
+            .setDescription(`Farewell, ${name}! We hope to see you again.`)
+            .setFooter({ 
+                text: 'Hotel Vibe',
+                iconURL: 'https://cdn.discordapp.com/emojis/677938877752680459.png'
+            })
+            .setTimestamp();
+        
+        // Send the departure message to the channel
         await interaction.channel.send({
             embeds: [embed]
         });
