@@ -9,6 +9,7 @@ const casinoCommand = require('./commands/casino/casino');
 const welcomeCommand = require('./commands/welcome/welcome');
 const goodbyeCommand = require('./commands/goodbye/goodbye');
 const autoroleCommand = require('./commands/autorole/autorole');
+const ticketCommand = require('./commands/ticket/ticket');
 
 // Store counting game state per guild
 const countingGames = new Map();
@@ -28,6 +29,27 @@ http.createServer((req, res) => {
 }).listen(PORT, () => console.log(`HTTP server listening on port ${PORT}`));
 
 const BOT_TOKEN = process.env.CLIENT_TOKEN;
+
+// Helper functions for ticket system
+function getTicketTitle(type) {
+    const titles = {
+        'sollicitatie': '📝 Sollicitatie',
+        'partnership': '🤝 Partnership',
+        'question': '❓ Vraag',
+        'complaint': '⚠️ Klacht'
+    };
+    return titles[type] || '🎫 Ticket';
+}
+
+function getTicketColor(type) {
+    const colors = {
+        'sollicitatie': 0x2ecc71, // Green
+        'partnership': 0x3498db, // Blue
+        'question': 0xf39c12, // Orange
+        'complaint': 0xe74c3c // Red
+    };
+    return colors[type] || 0x5865F2; // Default Discord blurple
+}
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
@@ -288,11 +310,236 @@ client.on(Events.GuildMemberRemove, async member => {
 			}
 		}
 
-		// Handle string select menu interactions for reviews
+		// Handle string select menu interactions
 		if (interaction.isStringSelectMenu()) {
+			// Handle ticket type selection
+			if (interaction.customId === 'ticket-type') {
+				const ticketType = interaction.values[0];
+				const userId = interaction.user.id;
+				
+				// Create modal based on ticket type
+				const modal = new ModalBuilder()
+					.setCustomId(`ticket-modal-${ticketType}-${userId}`)
+					.setTitle(`Ticket: ${getTicketTitle(ticketType)}`);
+				
+				// Add appropriate fields based on ticket type
+				if (ticketType === 'sollicitatie') {
+					const ageInput = new TextInputBuilder()
+						.setCustomId('ticket-age')
+						.setLabel('Hoe old ben je?')
+						.setStyle(TextInputStyle.Short)
+						.setPlaceholder('Bijv. 18')
+						.setRequired(true);
+					
+					const positionInput = new TextInputBuilder()
+						.setCustomId('ticket-position')
+						.setLabel('Voor welke positie wil je solliciteren?')
+						.setStyle(TextInputStyle.Short)
+						.setPlaceholder('Bijv. Moderator, Admin')
+						.setRequired(true);
+					
+					const experienceInput = new TextInputBuilder()
+						.setCustomId('ticket-experience')
+						.setLabel('Heb je ervaring? Zo ja, vertel erover.')
+						.setStyle(TextInputStyle.Paragraph)
+						.setPlaceholder('Vertel over je ervaring...')
+						.setRequired(false);
+					
+					const reasonInput = new TextInputBuilder()
+						.setCustomId('ticket-reason')
+						.setLabel('Waarom wil je bij ons team?')
+						.setStyle(TextInputStyle.Paragraph)
+						.setPlaceholder('Vertel waarom jij een goede aanwinst zou zijn...')
+						.setRequired(true);
+					
+					modal.addComponents(
+						new ActionRowBuilder().addComponents(ageInput),
+						new ActionRowBuilder().addComponents(positionInput),
+						new ActionRowBuilder().addComponents(experienceInput),
+						new ActionRowBuilder().addComponents(reasonInput)
+					);
+				} else if (ticketType === 'partnership') {
+					const membersInput = new TextInputBuilder()
+						.setCustomId('ticket-members')
+						.setLabel('Hoeveel members heeft jouw server? (excl. bots)')
+						.setStyle(TextInputStyle.Short)
+						.setPlaceholder('Bijv. 500')
+						.setRequired(true);
+					
+					const serverLinkInput = new TextInputBuilder()
+						.setCustomId('ticket-serverlink')
+						.setLabel('Link naar jouw server')
+						.setStyle(TextInputStyle.Short)
+						.setPlaceholder('https://discord.gg/...')
+						.setRequired(true);
+					
+					const aboutInput = new TextInputBuilder()
+						.setCustomId('ticket-about')
+						.setLabel('Vertel over jouw server en waarom een partnership?')
+						.setStyle(TextInputStyle.Paragraph)
+						.setPlaceholder('Beschrijf jouw server en de voordelen van een partnership...')
+						.setRequired(true);
+					
+					modal.addComponents(
+						new ActionRowBuilder().addComponents(membersInput),
+						new ActionRowBuilder().addComponents(serverLinkInput),
+						new ActionRowBuilder().addComponents(aboutInput)
+					);
+				} else if (ticketType === 'question') {
+					const questionInput = new TextInputBuilder()
+						.setCustomId('ticket-question')
+						.setLabel('Wat is jouw vraag?')
+						.setStyle(TextInputStyle.Paragraph)
+						.setPlaceholder('Stel je vraag zo duidelijk mogelijk...')
+						.setRequired(true);
+					
+					const contextInput = new TextInputBuilder()
+						.setCustomId('ticket-context')
+						.setLabel('Extra context (optioneel)')
+						.setStyle(TextInputStyle.Paragraph)
+						.setPlaceholder('Voeg eventueel extra informatie toe...')
+						.setRequired(false);
+					
+					modal.addComponents(
+						new ActionRowBuilder().addComponents(questionInput),
+						new ActionRowBuilder().addComponents(contextInput)
+					);
+				} else if (ticketType === 'complaint') {
+					const aboutInput = new TextInputBuilder()
+						.setCustomId('ticket-about')
+						.setLabel('Waar gaat je klacht over?')
+						.setStyle(TextInputStyle.Short)
+						.setPlaceholder('Bijv. over een staff member, een regel, etc.')
+						.setRequired(true);
+					
+					const descriptionInput = new TextInputBuilder()
+						.setCustomId('ticket-description')
+						.setLabel('Beschrijf je klacht gedetailleerd')
+						.setStyle(TextInputStyle.Paragraph)
+						.setPlaceholder('Beschrijf wat er is gebeurd, wanneer, en betrokken personen...')
+						.setRequired(true);
+					
+					const evidenceInput = new TextInputBuilder()
+						.setCustomId('ticket-evidence')
+						.setLabel('Heb je bewijs? (screenshots, logs, etc.)')
+						.setStyle(TextInputStyle.Paragraph)
+						.setPlaceholder('Beschrijf welk bewijs je hebt of plak screenshots...')
+						.setRequired(false);
+					
+					const resolutionInput = new TextInputBuilder()
+						.setCustomId('ticket-resolution')
+						.setLabel('Wat zou een goede oplossing zijn?')
+						.setStyle(TextInputStyle.Paragraph)
+						.setPlaceholder('Beschrijf wat je verwacht dat er gebeurt...')
+						.setRequired(false);
+					
+					modal.addComponents(
+						new ActionRowBuilder().addComponents(aboutInput),
+						new ActionRowBuilder().addComponents(descriptionInput),
+						new ActionRowBuilder().addComponents(evidenceInput),
+						new ActionRowBuilder().addComponents(resolutionInput)
+					);
+				}
+				
+				await interaction.showModal(modal);
+				return;
+			}
+			
 			// This is handled by the review command itself, so we just ignore it here
 			// The review command sets up its own collector
 			return;
+		}
+
+		// Handle modal submissions for tickets
+		if (interaction.isModalSubmit()) {
+			if (interaction.customId.startsWith('ticket-modal-')) {
+				const parts = interaction.customId.split('-');
+				const ticketType = parts[2];
+				const userId = parts[3];
+				
+				// Verify it's the right user
+				if (interaction.user.id !== userId) {
+					return interaction.reply({
+						content: '❌ Dit ticket formulier is niet voor jou bestemd.',
+						ephemeral: true
+					});
+				}
+				
+				// Create ticket embed based on type
+				const embed = new EmbedBuilder()
+					.setColor(getTicketColor(ticketType))
+					.setTitle(`🎫 ${getTicketTitle(ticketType)}`)
+					.setDescription(`Ticket ingediend door ${interaction.user}`)
+					.addFields({ name: 'Type', value: getTicketTitle(ticketType), inline: true })
+					.addFields({ name: 'Status', value: '🟡 In behandeling', inline: true })
+					.addFields({ name: 'Aangemaakt', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true })
+					.setFooter({ text: `Ticket ID: ${Date.now().toString(36)}` })
+					.setTimestamp();
+				
+				// Add fields based on ticket type
+				if (ticketType === 'sollicitatie') {
+					embed.addFields({
+						name: '📝 Antwoorden',
+						value: `**Leeftijd:** ${interaction.fields.getTextInputValue('ticket-age')}\n` +
+							   `**Positie:** ${interaction.fields.getTextInputValue('ticket-position')}\n` +
+							   `**Ervaring:** ${interaction.fields.getTextInputValue('ticket-experience') || 'Geen ervaring vermeld'}\n` +
+							   `**Motivatie:** ${interaction.fields.getTextInputValue('ticket-reason')}`
+					});
+				} else if (ticketType === 'partnership') {
+					embed.addFields({
+						name: '📝 Antwoorden',
+						value: `**Members:** ${interaction.fields.getTextInputValue('ticket-members')}\n` +
+							   `**Server Link:** ${interaction.fields.getTextInputValue('ticket-serverlink')}\n` +
+							   `**Over Server:** ${interaction.fields.getTextInputValue('ticket-about')}`
+					});
+				} else if (ticketType === 'question') {
+					embed.addFields({
+						name: '❓ Vraag',
+						value: interaction.fields.getTextInputValue('ticket-question')
+					});
+					const context = interaction.fields.getTextInputValue('ticket-context');
+					if (context) {
+						embed.addFields({
+							name: '📌 Context',
+							value: context
+						});
+					}
+				} else if (ticketType === 'complaint') {
+					embed.addFields({
+						name: '⚠️ Klacht',
+						value: `**Onderwerp:** ${interaction.fields.getTextInputValue('ticket-about')}\n` +
+							   `**Beschrijving:** ${interaction.fields.getTextInputValue('ticket-description')}`
+					});
+					const evidence = interaction.fields.getTextInputValue('ticket-evidence');
+					if (evidence) {
+						embed.addFields({
+							name: '🔍 Bewijs',
+							value: evidence
+						});
+					}
+					const resolution = interaction.fields.getTextInputValue('ticket-resolution');
+					if (resolution) {
+						embed.addFields({
+							name: '💡 Gewenste Oplossing',
+							value: resolution
+						});
+					}
+				}
+				
+				// Send ticket to channel
+				await interaction.channel.send({
+					content: '🎫 **Nieuw ticket ontvangen!** Staff members zullen zo snel mogelijk reageren.',
+					embeds: [embed]
+				});
+				
+				// Confirm to user
+				await interaction.reply({
+					content: `✅ Je ${getTicketTitle(ticketType).toLowerCase()} ticket is succesvol ingediend! Onze staff zal zo snel mogelijk reageren.`,
+					ephemeral: true
+				});
+				
+				return;
+			}
 		}
 
 		// Handle chat input commands
