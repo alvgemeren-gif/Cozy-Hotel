@@ -14,7 +14,7 @@ http.createServer((req, res) => {
 
 const BOT_TOKEN = process.env.CLIENT_TOKEN;
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
 client.commands = new Collection();
 
@@ -46,6 +46,37 @@ client.once(Events.ClientReady, c => {
 });
 
 client.on(Events.InteractionCreate, async interaction => {
+	// Handle button interactions for reaction roles
+	if (interaction.isButton()) {
+		if (interaction.customId.startsWith('reactionrole-')) {
+			const roleId = interaction.customId.replace('reactionrole-', '');
+			const member = interaction.member;
+			const guild = interaction.guild;
+
+			try {
+				const role = await guild.roles.fetch(roleId);
+				if (!role) {
+					return interaction.reply({ content: 'This role no longer exists.', ephemeral: true });
+				}
+
+				if (member.roles.cache.has(roleId)) {
+					// Remove the role
+					await member.roles.remove(role);
+					await interaction.reply({ content: `Removed the ${role.name} role from your profile.`, ephemeral: true });
+				} else {
+					// Add the role
+					await member.roles.add(role);
+					await interaction.reply({ content: `Added the ${role.name} role to your profile!`, ephemeral: true });
+				}
+			} catch (error) {
+				console.error(error);
+				await interaction.reply({ content: 'There was an error managing your roles. Make sure the bot has permission to manage roles.', ephemeral: true });
+			}
+			return;
+		}
+	}
+
+	// Handle chat input commands
     if (!interaction.isChatInputCommand()) return;
 
     const command = interaction.client.commands.get(interaction.commandName);
