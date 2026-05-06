@@ -24,7 +24,6 @@ module.exports = {
         
         // Acknowledge the user's input privately
         await interaction.reply({
-            content: '👻 Je ghost message is verzonden! Niemand kan zien dat jij het stuurde.',
             ephemeral: true
         });
         
