@@ -9,6 +9,9 @@ const getMeme = require('./commands/getMeme/getMeme');
 // Store counting game state per guild
 const countingGames = new Map();
 
+// Store minigame state per user
+const minigames = new Map();
+
 const PORT = process.env.PORT || 3000;
 http.createServer((req, res) => {
 	res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -77,7 +80,8 @@ client.on(Events.MessageCreate, async message => {
 			.setDescription(`⚠️ ${message.author}, you can't count twice in a row!`)
 			.setTimestamp();
 		
-		await message.channel.send({ embeds: [warningEmbed] }).then(msg => setTimeout(() => msg.delete().catch(() => {}), 5000));
+		const warnMsg = await message.channel.send({ embeds: [warningEmbed] });
+		setTimeout(() => warnMsg.delete().catch(() => {}), 5000);
 		return;
 	}
 
@@ -87,6 +91,9 @@ client.on(Events.MessageCreate, async message => {
 		// Correct count!
 		game.currentCount = number;
 		game.lastCounter = message.author.id;
+
+		// Add a checkmark emoji to the user's message
+		await message.react('✅');
 
 		// Update the game message
 		const { EmbedBuilder } = require('discord.js');
@@ -131,6 +138,9 @@ client.on(Events.MessageCreate, async message => {
 		// Wrong number - but we continue counting anyway!
 		game.lastCounter = message.author.id;
 		
+		// Add a cross emoji to indicate mistake
+		await message.react('❌');
+		
 		const { EmbedBuilder } = require('discord.js');
 		const mistakeEmbed = new EmbedBuilder()
 			.setColor(0xFFA500)
@@ -140,7 +150,8 @@ client.on(Events.MessageCreate, async message => {
 			)
 			.setTimestamp();
 
-		await message.channel.send({ embeds: [mistakeEmbed] }).then(msg => setTimeout(() => msg.delete().catch(() => {}), 10000));
+		const errorMsg = await message.channel.send({ embeds: [mistakeEmbed] });
+		setTimeout(() => errorMsg.delete().catch(() => {}), 10000);
 	}
 });
 
@@ -232,6 +243,184 @@ client.on(Events.MessageCreate, async message => {
 			// This is handled by the review command itself, so we just ignore it here
 			// The review command sets up its own collector
 			return;
+		}
+
+		// Handle button interactions for minigames
+		if (interaction.isButton()) {
+			// Wordle guess button
+			if (interaction.customId.startsWith('wordle-guess-')) {
+				// This is handled by the wordle command itself via collector
+				return;
+			}
+
+			// Minesweeper buttons
+			if (interaction.customId.startsWith('mine-')) {
+				const userId = interaction.user.id;
+				const game = minigames.get(`minesweeper-${userId}`);
+				if (!game || game.status !== 'active') {
+					return interaction.reply({ content: 'No active Minesweeper game found. Use /minigames minesweeper to start a new game.', ephemeral: true });
+				}
+
+				const parts = interaction.customId.split('-');
+				const r = parseInt(parts[1]);
+				const c = parseInt(parts[2]);
+				const key = `${r}-${c}`;
+
+				if (game.revealed.has(key) || game.flagged.has(key)) {
+					return interaction.reply({ content: 'This cell is already revealed or flagged!', ephemeral: true });
+				}
+
+				const cell = game.grid[r][c];
+
+				if (cell.isMine) {
+					// Hit a mine - game over
+					game.status = 'lost';
+					game.revealed.add(key);
+
+					// Reveal all mines
+					for (let mr = 0; mr < game.rows; mr++) {
+						for (let mc = 0; mc < game.cols; mc++) {
+							if (game.grid[mr][mc].isMine) {
+								game.revealed.add(`${mr}-${mc}`);
+							}
+						}
+					}
+
+					const embed = createMinesweeperEmbed(game);
+					const components = createMinesweeperButtons(game);
+
+					return interaction.update({
+						content: '💥 **BOOM!** You hit a mine! Game over!',
+						embeds: [embed],
+						components: components
+					});
+				}
+
+				// Reveal the cell
+				game.revealed.add(key);
+
+				// Check if won (all non-mine cells revealed)
+				const totalSafe = game.rows * game.cols - game.mineCount;
+				if (game.revealed.size === totalSafe) {
+					game.status = 'won';
+				}
+
+				const embed = createMinesweeperEmbed(game);
+				const components = createMinesweeperButtons(game);
+
+				await interaction.update({
+					content: '💣 **Minesweeper** - Keep going!',
+					embeds: [embed],
+					components: components
+				});
+				return;
+			}
+
+			// Minesweeper mode toggle
+			if (interaction.customId === 'mine-mode-toggle') {
+				return interaction.reply({ content: 'Flag mode toggled! (Feature coming soon)', ephemeral: true });
+			}
+
+			// Galgje (Hangman) letter buttons
+			if (interaction.customId.startsWith('galgje-')) {
+				const userId = interaction.user.id;
+				const game = minigames.get(`galgje-${userId}`);
+				if (!game || game.status !== 'active') {
+					return interaction.reply({ content: 'No active Galgje game found. Use /minigames galgje to start a new game.', ephemeral: true });
+				}
+
+				const letter = interaction.customId.replace('galgje-', '');
+
+				if (game.guessedLetters.has(letter)) {
+					return interaction.reply({ content: 'You already guessed that letter!', ephemeral: true });
+				}
+
+				game.guessedLetters.add(letter);
+
+				// Check if letter is in the word
+				if (!game.targetWord.includes(letter)) {
+					game.wrongGuesses++;
+				}
+
+				// Check win condition
+				let won = true;
+				for (const char of game.targetWord) {
+					if (!game.guessedLetters.has(char)) {
+						won = false;
+						break;
+					}
+				}
+
+				if (won) {
+					game.status = 'won';
+				} else if (game.wrongGuesses >= game.maxWrongGuesses) {
+					game.status = 'lost';
+				}
+
+				const embed = createGalgjeEmbed(game);
+				const components = createGalgjeButtons(game);
+
+				await interaction.update({
+					content: game.status === 'won' ? '🎉 You won!' : game.status === 'lost' ? '😔 Game over!' : '🎭 **Galgje** - Keep guessing!',
+					embeds: [embed],
+					components: components
+				});
+				return;
+			}
+		}
+
+		// Handle modal submissions for minigames
+		if (interaction.isModalSubmit()) {
+			// Wordle modal
+			if (interaction.customId.startsWith('wordle-modal-')) {
+				const userId = interaction.customId.replace('wordle-modal-', '');
+				const game = minigames.get(`wordle-${userId}`);
+				if (!game || game.status !== 'active') {
+					return interaction.reply({ content: 'No active Wordle game found. Use /minigames wordle to start a new game.', ephemeral: true });
+				}
+
+				const guess = interaction.fields.getTextInputValue('wordle-guess-input').toLowerCase();
+
+				// Validate guess
+				if (guess.length !== 5) {
+					return interaction.reply({ content: 'The word must be 5 letters long!', ephemeral: true });
+				}
+
+				if (!wordleWords.includes(guess)) {
+					return interaction.reply({ content: 'That word is not in the word list! Try another 5-letter word.', ephemeral: true });
+				}
+
+				// Evaluate guess
+				const result = evaluateWordleGuess(guess, game.targetWord);
+				game.guesses.push({ word: guess, result: result });
+
+				// Check win condition
+				if (result === '🟩🟩🟩🟩🟩') {
+					game.status = 'won';
+				} else if (game.guesses.length >= game.maxGuesses) {
+					game.status = 'lost';
+				}
+
+				const embed = createWordleEmbed(game);
+
+				// If game is over, remove the button
+				const components = game.status === 'active' ? [
+					new ActionRowBuilder()
+						.addComponents(
+							new ButtonBuilder()
+								.setCustomId(`wordle-guess-${userId}`)
+								.setLabel('Make a Guess')
+								.setStyle(ButtonStyle.Primary)
+						)
+				] : [];
+
+				await interaction.update({
+					content: game.status === 'won' ? '🎉 You won!' : game.status === 'lost' ? '😔 Game over!' : '🟩🟨⬛ **Wordle** - Keep guessing!',
+					embeds: [embed],
+					components: components
+				});
+				return;
+			}
 		}
 
 		// Handle chat input commands
