@@ -557,5 +557,12 @@ function createGalgjeButtons(game) {
 	return components;
 }
 
-// Export game state for use in app.js
+// Export game state and helper functions for use in app.js
 module.exports.activeGames = activeGames;
+module.exports.createMinesweeperEmbed = createMinesweeperEmbed;
+module.exports.createMinesweeperButtons = createMinesweeperButtons;
+module.exports.createGalgjeEmbed = createGalgjeEmbed;
+module.exports.createGalgjeButtons = createGalgjeButtons;
+module.exports.createWordleEmbed = createWordleEmbed;
+module.exports.evaluateWordleGuess = evaluateWordleGuess;
+module.exports.wordleWords = wordleWords;

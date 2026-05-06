@@ -5,12 +5,24 @@ const http = require('http');
 const deployCommands = require('./deploy/deployCommands');
 const { Client, Collection, Events, GatewayIntentBits, REST, Routes } = require('discord.js');
 const getMeme = require('./commands/getMeme/getMeme');
+const minigamesCommand = require('./commands/minigames/minigames');
 
 // Store counting game state per guild
 const countingGames = new Map();
 
-// Store minigame state per user
-const minigames = new Map();
+// Use the shared minigames map from minigames.js
+const minigames = minigamesCommand.activeGames;
+
+// Import helper functions from minigames.js
+const { 
+	createMinesweeperEmbed, 
+	createMinesweeperButtons, 
+	createGalgjeEmbed, 
+	createGalgjeButtons, 
+	createWordleEmbed, 
+	evaluateWordleGuess, 
+	wordleWords 
+} = minigamesCommand;
 
 const PORT = process.env.PORT || 3000;
 http.createServer((req, res) => {
@@ -247,9 +259,39 @@ client.on(Events.MessageCreate, async message => {
 
 		// Handle button interactions for minigames
 		if (interaction.isButton()) {
-			// Wordle guess button
+			// Wordle guess button - show modal for entering guess
 			if (interaction.customId.startsWith('wordle-guess-')) {
-				// This is handled by the wordle command itself via collector
+				const userId = interaction.customId.replace('wordle-guess-', '');
+				const game = minigames.get(`wordle-${userId}`);
+				
+				if (!game || game.status !== 'active') {
+					return interaction.reply({ content: 'No active Wordle game found. Use /minigames wordle to start a new game.', ephemeral: true });
+				}
+				
+				// Check if game belongs to this user
+				if (interaction.user.id !== userId) {
+					return interaction.reply({ content: 'This is not your game!', ephemeral: true });
+				}
+				
+				// Show modal for guess
+				const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+				
+				const modal = new ModalBuilder()
+					.setCustomId(`wordle-modal-${userId}`)
+					.setTitle('Wordle - Enter Your Guess');
+				
+				const guessInput = new TextInputBuilder()
+					.setCustomId('wordle-guess-input')
+					.setLabel('Enter a 5-letter word')
+					.setStyle(TextInputStyle.Short)
+					.setPlaceholder('e.g., CRANE')
+					.setMaxLength(5)
+					.setRequired(true);
+				
+				const firstRow = new ActionRowBuilder().addComponents(guessInput);
+				modal.addComponents(firstRow);
+				
+				await interaction.showModal(modal);
 				return;
 			}
 
