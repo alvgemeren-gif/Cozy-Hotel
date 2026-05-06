@@ -52,7 +52,36 @@ function getTicketColor(type) {
     return colors[type] || 0x5865F2; // Default Discord blurple
 }
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+function getTicketTitle(type) {
+	const titles = {
+		application: 'Application',
+		partnership: 'Partnership',
+		question: 'Question',
+		complaint: 'Complaint',
+		storyline: 'Storyline',
+	};
+	return titles[type] || 'Ticket';
+}
+
+function getTicketColor(type) {
+	const colors = {
+		application: 0x2ecc71,
+		partnership: 0x3498db,
+		question: 0xf39c12,
+		complaint: 0xe74c3c,
+		storyline: 0x9b59b6,
+	};
+	return colors[type] || 0x5865F2;
+}
+
+const client = new Client({
+	intents: [
+		GatewayIntentBits.Guilds,
+		GatewayIntentBits.GuildMembers,
+		GatewayIntentBits.GuildMessages,
+		GatewayIntentBits.MessageContent,
+	],
+});
 
 client.commands = new Collection();
 
@@ -90,6 +119,9 @@ client.on(Events.MessageCreate, async message => {
 
 	const guildId = message.guild?.id;
 	if (!guildId) return;
+
+	// Handle keyword-based role assignment in every server channel
+	await keywordroleCommand.checkKeywordAndAssignRole(message);
 
 	// Check if there's an active counting game in this guild
 	if (!countingGames.has(guildId)) return;
@@ -185,9 +217,6 @@ client.on(Events.MessageCreate, async message => {
 		const errorMsg = await message.channel.send({ embeds: [mistakeEmbed] });
 		setTimeout(() => errorMsg.delete().catch(() => {}), 10000);
 	}
-
-	// Handle keyword-based role assignment
-	await keywordroleCommand.checkKeywordAndAssignRole(message);
 });
 
 // Handle welcome messages and autorole when members join
@@ -346,7 +375,7 @@ client.on(Events.GuildMemberRemove, async member => {
 					
 					const experienceInput = new TextInputBuilder()
 						.setCustomId('ticket-experience')
-						.setLabel('Do you have any experience? If yes, tell us about it.')
+						.setLabel('Tell us about your experience')
 						.setStyle(TextInputStyle.Paragraph)
 						.setPlaceholder('Tell us about your experience...')
 						.setRequired(false);
@@ -381,7 +410,7 @@ client.on(Events.GuildMemberRemove, async member => {
 					
 					const aboutInput = new TextInputBuilder()
 						.setCustomId('ticket-about')
-						.setLabel('Tell us about your server and why a partnership?')
+						.setLabel('Why should we partner?')
 						.setStyle(TextInputStyle.Paragraph)
 						.setPlaceholder('Describe your server and the benefits of a partnership...')
 						.setRequired(true);
@@ -427,7 +456,7 @@ client.on(Events.GuildMemberRemove, async member => {
 					
 					const evidenceInput = new TextInputBuilder()
 						.setCustomId('ticket-evidence')
-						.setLabel('Do you have any evidence? (screenshots, logs, etc.)')
+						.setLabel('Evidence')
 						.setStyle(TextInputStyle.Paragraph)
 						.setPlaceholder('Describe what evidence you have or paste screenshots...')
 						.setRequired(false);
@@ -444,6 +473,41 @@ client.on(Events.GuildMemberRemove, async member => {
 						new ActionRowBuilder().addComponents(descriptionInput),
 						new ActionRowBuilder().addComponents(evidenceInput),
 						new ActionRowBuilder().addComponents(resolutionInput)
+					);
+				} else if (ticketType === 'storyline') {
+					const titleInput = new TextInputBuilder()
+						.setCustomId('ticket-storyline-title')
+						.setLabel('Storyline title')
+						.setStyle(TextInputStyle.Short)
+						.setPlaceholder('e.g., The Lost Heir')
+						.setRequired(true);
+
+					const ideaInput = new TextInputBuilder()
+						.setCustomId('ticket-storyline-idea')
+						.setLabel('Describe your storyline')
+						.setStyle(TextInputStyle.Paragraph)
+						.setPlaceholder('Tell us what the storyline is about...')
+						.setRequired(true);
+
+					const rolesInput = new TextInputBuilder()
+						.setCustomId('ticket-storyline-roles')
+						.setLabel('Characters or roles needed')
+						.setStyle(TextInputStyle.Paragraph)
+						.setPlaceholder('List the characters, roles, or staff help needed...')
+						.setRequired(false);
+
+					const timingInput = new TextInputBuilder()
+						.setCustomId('ticket-storyline-timing')
+						.setLabel('Preferred timing')
+						.setStyle(TextInputStyle.Short)
+						.setPlaceholder('e.g., this weekend, evenings, flexible')
+						.setRequired(false);
+
+					modal.addComponents(
+						new ActionRowBuilder().addComponents(titleInput),
+						new ActionRowBuilder().addComponents(ideaInput),
+						new ActionRowBuilder().addComponents(rolesInput),
+						new ActionRowBuilder().addComponents(timingInput)
 					);
 				}
 				
@@ -528,6 +592,26 @@ client.on(Events.GuildMemberRemove, async member => {
 						embed.addFields({
 							name: '💡 Desired Resolution',
 							value: resolution
+						});
+					}
+				} else if (ticketType === 'storyline') {
+					embed.addFields({
+						name: 'Storyline',
+						value: `**Title:** ${interaction.fields.getTextInputValue('ticket-storyline-title')}\n` +
+							   `**Idea:** ${interaction.fields.getTextInputValue('ticket-storyline-idea')}`
+					});
+					const roles = interaction.fields.getTextInputValue('ticket-storyline-roles');
+					if (roles) {
+						embed.addFields({
+							name: 'Characters or Roles',
+							value: roles
+						});
+					}
+					const timing = interaction.fields.getTextInputValue('ticket-storyline-timing');
+					if (timing) {
+						embed.addFields({
+							name: 'Preferred Timing',
+							value: timing
 						});
 					}
 				}
