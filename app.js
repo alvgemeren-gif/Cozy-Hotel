@@ -6,6 +6,9 @@ const deployCommands = require('./deploy/deployCommands');
 const { Client, Collection, Events, GatewayIntentBits, REST, Routes } = require('discord.js');
 const getMeme = require('./commands/getMeme/getMeme');
 
+// Store counting game state per guild
+const countingGames = new Map();
+
 const PORT = process.env.PORT || 3000;
 http.createServer((req, res) => {
 	res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -45,39 +48,194 @@ client.once(Events.ClientReady, c => {
 	console.log(`Ready! Logged in as ${c.user.tag}`);
 });
 
-client.on(Events.InteractionCreate, async interaction => {
-	// Handle button interactions for reaction roles
-	if (interaction.isButton()) {
-		if (interaction.customId.startsWith('reactionrole-')) {
-			const roleId = interaction.customId.replace('reactionrole-', '');
-			const member = interaction.member;
-			const guild = interaction.guild;
+// Handle counting game messages
+client.on(Events.MessageCreate, async message => {
+	// Ignore bot messages
+	if (message.author.bot) return;
 
-			try {
-				const role = await guild.roles.fetch(roleId);
-				if (!role) {
-					return interaction.reply({ content: 'This role no longer exists.', ephemeral: true });
-				}
+	const guildId = message.guild?.id;
+	if (!guildId) return;
 
-				if (member.roles.cache.has(roleId)) {
-					// Remove the role
-					await member.roles.remove(role);
-					await interaction.reply({ content: `Removed the ${role.name} role from your profile.`, ephemeral: true });
-				} else {
-					// Add the role
-					await member.roles.add(role);
-					await interaction.reply({ content: `Added the ${role.name} role to your profile!`, ephemeral: true });
-				}
-			} catch (error) {
-				console.error(error);
-				await interaction.reply({ content: 'There was an error managing your roles. Make sure the bot has permission to manage roles.', ephemeral: true });
-			}
-			return;
-		}
+	// Check if there's an active counting game in this guild
+	if (!countingGames.has(guildId)) return;
+
+	const game = countingGames.get(guildId);
+	
+	// Check if the message is in the counting channel
+	if (message.channel.id !== game.channelId) return;
+
+	// Ignore if it's not a number
+	const number = parseInt(message.content.trim());
+	if (isNaN(number)) return;
+
+	// Check if the same person is counting twice in a row
+	if (game.lastCounter === message.author.id) {
+		await message.delete().catch(() => {});
+		const { EmbedBuilder } = require('discord.js');
+		const warningEmbed = new EmbedBuilder()
+			.setColor(0xFF0000)
+			.setDescription(`⚠️ ${message.author}, you can't count twice in a row!`)
+			.setTimestamp();
+		
+		await message.channel.send({ embeds: [warningEmbed] }).then(msg => setTimeout(() => msg.delete().catch(() => {}), 5000));
+		return;
 	}
 
-	// Handle chat input commands
-    if (!interaction.isChatInputCommand()) return;
+	const expectedNumber = game.currentCount + 1;
+
+	if (number === expectedNumber) {
+		// Correct count!
+		game.currentCount = number;
+		game.lastCounter = message.author.id;
+
+		// Update the game message
+		const { EmbedBuilder } = require('discord.js');
+		const updatedEmbed = new EmbedBuilder()
+			.setColor(0x9c7453)
+			.setTitle('🎯 Counting Game')
+			.setDescription(
+				'**How to play:**\n' +
+				'• Users take turns counting up from 1\n' +
+				'• Each person can only say the next number\n' +
+				'• If someone makes a mistake, the counting continues\n' +
+				'• Try to reach high numbers together!\n\n' +
+				`**Current Count:** ${game.currentCount}\n` +
+				`**Next Number:** ${game.currentCount + 1}\n\n` +
+				`Last counter: ${message.author}`
+			)
+			.setTimestamp();
+
+		try {
+			if (game.message) {
+				await game.message.edit({
+					content: `🎯 **Counting:** ${game.currentCount}`,
+					embeds: [updatedEmbed]
+				});
+			}
+		} catch (error) {
+			console.error('Error updating counting message:', error);
+		}
+
+		// Celebrate milestones
+		if (game.currentCount % 50 === 0 && game.currentCount > 0) {
+			const milestoneEmbed = new EmbedBuilder()
+				.setColor(0x00FF00)
+				.setTitle(`🎉 Milestone Reached! ${game.currentCount}!`)
+				.setDescription(`${message.author} helped reach ${game.currentCount}!`)
+				.setTimestamp();
+			
+			await message.channel.send({ embeds: [milestoneEmbed] });
+		}
+
+	} else if (number !== expectedNumber) {
+		// Wrong number - but we continue counting anyway!
+		game.lastCounter = message.author.id;
+		
+		const { EmbedBuilder } = require('discord.js');
+		const mistakeEmbed = new EmbedBuilder()
+			.setColor(0xFFA500)
+			.setDescription(
+				`❌ ${message.author} said **${number}** but the correct number was **${expectedNumber}**!\n` +
+				`The counting continues from **${expectedNumber}**!`
+			)
+			.setTimestamp();
+
+		await message.channel.send({ embeds: [mistakeEmbed] }).then(msg => setTimeout(() => msg.delete().catch(() => {}), 10000));
+	}
+});
+
+	client.on(Events.InteractionCreate, async interaction => {
+		// Handle modal submissions for reviews
+		if (interaction.isModalSubmit()) {
+			if (interaction.customId.startsWith('review-modal-')) {
+				const reviewType = interaction.customId.replace('review-modal-', '');
+				
+				try {
+					let reviewData = {};
+					let reviewTitle = '';
+					let reviewDescription = '';
+					
+					if (reviewType === 'books') {
+						reviewData = {
+							title: interaction.fields.getTextInputValue('book-title'),
+							author: interaction.fields.getTextInputValue('book-author'),
+							stars: interaction.fields.getTextInputValue('book-stars')
+						};
+						reviewTitle = `📚 Book Review: ${reviewData.title}`;
+						reviewDescription = `**Author:** ${reviewData.author}\n**Rating:** ${'⭐'.repeat(reviewData.stars)}${'☆'.repeat(5 - reviewData.stars)} (${reviewData.stars}/5)`;
+					} else if (reviewType === 'recipes') {
+						reviewData = {
+							title: interaction.fields.getTextInputValue('recipe-title'),
+							link: interaction.fields.getTextInputValue('recipe-link'),
+							stars: interaction.fields.getTextInputValue('recipe-stars'),
+							categories: interaction.fields.getTextInputValue('recipe-categories')
+						};
+						reviewTitle = `🍳 Recipe Review: ${reviewData.title}`;
+						reviewDescription = `**Link:** ${reviewData.link}\n**Categories:** ${reviewData.categories}\n**Rating:** ${'⭐'.repeat(reviewData.stars)}${'☆'.repeat(5 - reviewData.stars)} (${reviewData.stars}/5)`;
+					} else if (reviewType === 'drinks') {
+						reviewData = {
+							title: interaction.fields.getTextInputValue('drink-title'),
+							link: interaction.fields.getTextInputValue('drink-link'),
+							stars: interaction.fields.getTextInputValue('drink-stars'),
+							categories: interaction.fields.getTextInputValue('drink-categories')
+						};
+						reviewTitle = `🍹 Drink Review: ${reviewData.title}`;
+						reviewDescription = `**Link:** ${reviewData.link}\n**Categories:** ${reviewData.categories}\n**Rating:** ${'⭐'.repeat(reviewData.stars)}${'☆'.repeat(5 - reviewData.stars)} (${reviewData.stars}/5)`;
+					}
+					
+					// Send the review to the channel where the command was used
+					await interaction.channel.send({
+						content: `**${reviewTitle}**\n${reviewDescription}\n*Reviewed by ${interaction.user}*`
+					});
+					
+					await interaction.reply({ content: 'Your review has been submitted successfully!', ephemeral: true });
+				} catch (error) {
+					console.error(error);
+					await interaction.reply({ content: 'There was an error submitting your review.', ephemeral: true });
+				}
+				return;
+			}
+		}
+
+		// Handle button interactions for reaction roles
+		if (interaction.isButton()) {
+			if (interaction.customId.startsWith('reactionrole-')) {
+				const roleId = interaction.customId.replace('reactionrole-', '');
+				const member = interaction.member;
+				const guild = interaction.guild;
+
+				try {
+					const role = await guild.roles.fetch(roleId);
+					if (!role) {
+						return interaction.reply({ content: 'This role no longer exists.', ephemeral: true });
+					}
+
+					if (member.roles.cache.has(roleId)) {
+						// Remove the role
+						await member.roles.remove(role);
+						await interaction.reply({ content: `Removed the ${role.name} role from your profile.`, ephemeral: true });
+					} else {
+						// Add the role
+						await member.roles.add(role);
+						await interaction.reply({ content: `Added the ${role.name} role to your profile!`, ephemeral: true });
+					}
+				} catch (error) {
+					console.error(error);
+					await interaction.reply({ content: 'There was an error managing your roles. Make sure the bot has permission to manage roles.', ephemeral: true });
+				}
+				return;
+			}
+		}
+
+		// Handle string select menu interactions for reviews
+		if (interaction.isStringSelectMenu()) {
+			// This is handled by the review command itself, so we just ignore it here
+			// The review command sets up its own collector
+			return;
+		}
+
+		// Handle chat input commands
+	    if (!interaction.isChatInputCommand()) return;
 
     const command = interaction.client.commands.get(interaction.commandName);
 
