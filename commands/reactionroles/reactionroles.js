@@ -29,22 +29,10 @@ module.exports = {
 				.setDescription('First role to add to the panel')
 				.setRequired(true)
 		)
-		.addStringOption(option =>
-			option
-				.setName('label1')
-				.setDescription('Button label for the first role')
-				.setRequired(true)
-		)
 		.addRoleOption(option =>
 			option
 				.setName('role2')
 				.setDescription('Second role to add to the panel')
-				.setRequired(false)
-		)
-		.addStringOption(option =>
-			option
-				.setName('label2')
-				.setDescription('Button label for the second role')
 				.setRequired(false)
 		)
 		.addRoleOption(option =>
@@ -53,22 +41,10 @@ module.exports = {
 				.setDescription('Third role to add to the panel')
 				.setRequired(false)
 		)
-		.addStringOption(option =>
-			option
-				.setName('label3')
-				.setDescription('Button label for the third role')
-				.setRequired(false)
-		)
 		.addRoleOption(option =>
 			option
 				.setName('role4')
 				.setDescription('Fourth role to add to the panel')
-				.setRequired(false)
-		)
-		.addStringOption(option =>
-			option
-				.setName('label4')
-				.setDescription('Button label for the fourth role')
 				.setRequired(false)
 		)
 		.addRoleOption(option =>
@@ -77,10 +53,94 @@ module.exports = {
 				.setDescription('Fifth role to add to the panel')
 				.setRequired(false)
 		)
-		.addStringOption(option =>
+		.addRoleOption(option =>
 			option
-				.setName('label5')
-				.setDescription('Button label for the fifth role')
+				.setName('role6')
+				.setDescription('Sixth role to add to the panel')
+				.setRequired(false)
+		)
+		.addRoleOption(option =>
+			option
+				.setName('role7')
+				.setDescription('Seventh role to add to the panel')
+				.setRequired(false)
+		)
+		.addRoleOption(option =>
+			option
+				.setName('role8')
+				.setDescription('Eighth role to add to the panel')
+				.setRequired(false)
+		)
+		.addRoleOption(option =>
+			option
+				.setName('role9')
+				.setDescription('Ninth role to add to the panel')
+				.setRequired(false)
+		)
+		.addRoleOption(option =>
+			option
+				.setName('role10')
+				.setDescription('Tenth role to add to the panel')
+				.setRequired(false)
+		)
+		.addRoleOption(option =>
+			option
+				.setName('role11')
+				.setDescription('Eleventh role to add to the panel')
+				.setRequired(false)
+		)
+		.addRoleOption(option =>
+			option
+				.setName('role12')
+				.setDescription('Twelfth role to add to the panel')
+				.setRequired(false)
+		)
+		.addRoleOption(option =>
+			option
+				.setName('role13')
+				.setDescription('Thirteenth role to add to the panel')
+				.setRequired(false)
+		)
+		.addRoleOption(option =>
+			option
+				.setName('role14')
+				.setDescription('Fourteenth role to add to the panel')
+				.setRequired(false)
+		)
+		.addRoleOption(option =>
+			option
+				.setName('role15')
+				.setDescription('Fifteenth role to add to the panel')
+				.setRequired(false)
+		)
+		.addRoleOption(option =>
+			option
+				.setName('role16')
+				.setDescription('Sixteenth role to add to the panel')
+				.setRequired(false)
+		)
+		.addRoleOption(option =>
+			option
+				.setName('role17')
+				.setDescription('Seventeenth role to add to the panel')
+				.setRequired(false)
+		)
+		.addRoleOption(option =>
+			option
+				.setName('role18')
+				.setDescription('Eighteenth role to add to the panel')
+				.setRequired(false)
+		)
+		.addRoleOption(option =>
+			option
+				.setName('role19')
+				.setDescription('Nineteenth role to add to the panel')
+				.setRequired(false)
+		)
+		.addRoleOption(option =>
+			option
+				.setName('role20')
+				.setDescription('Twentieth role to add to the panel')
 				.setRequired(false)
 		),
 	async execute(interaction) {
@@ -91,24 +151,20 @@ module.exports = {
 		const title = interaction.options.getString('title');
 		const description = interaction.options.getString('description');
 
-		// Collect all role-label pairs
+		// Collect all roles (using role name as label)
 		const roles = [];
-		const roleOptions = [
-			{ role: interaction.options.getRole('role1'), label: interaction.options.getString('label1') },
-			{ role: interaction.options.getRole('role2'), label: interaction.options.getString('label2') },
-			{ role: interaction.options.getRole('role3'), label: interaction.options.getString('label3') },
-			{ role: interaction.options.getRole('role4'), label: interaction.options.getString('label4') },
-			{ role: interaction.options.getRole('role5'), label: interaction.options.getString('label5') },
-		];
-
-		for (const { role, label } of roleOptions) {
-			if (role && label) {
-				roles.push({ role, label });
+		
+		// Check all 20 possible role options
+		for (let i = 1; i <= 20; i++) {
+			const role = interaction.options.getRole(`role${i}`);
+			if (role) {
+				// Use the role name as the button label
+				roles.push({ role: role, label: role.name });
 			}
 		}
 
 		if (roles.length === 0) {
-			return interaction.editReply({ content: 'You must provide at least one role and label pair.' });
+			return interaction.editReply({ content: 'You must provide at least one role.' });
 		}
 
 		// Create the embed
