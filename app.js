@@ -26,6 +26,7 @@ const ticketCommand = require('./commands/ticket/ticket');
 const keywordroleCommand = require('./commands/keywordrole/keywordrole');
 const keywordreactCommand = require('./commands/keywordreact/keywordreact');
 const levelCommand = require('./commands/level/level');
+const memberbookCommand = require('./commands/memberbook/memberbook');
 const qotdCommand = require('./commands/qotd/qotd');
 const rolecleanupCommand = require('./commands/rolecleanup/rolecleanup');
 
@@ -259,6 +260,8 @@ client.on(Events.MessageCreate, async message => {
 // Handle welcome messages and autorole when members join
 client.on(Events.GuildMemberAdd, async member => {
 	const guildId = member.guild.id;
+
+	await memberbookCommand.handleMemberJoin(member);
 	
 	// Handle autorole - assign role automatically
 	await autoroleCommand.assignAutorole(member);
@@ -282,6 +285,8 @@ client.on(Events.GuildMemberAdd, async member => {
 // Handle goodbye messages when members leave
 client.on(Events.GuildMemberRemove, async member => {
 	const guildId = member.guild.id;
+
+	await memberbookCommand.handleMemberLeave(member);
 	
 	// Check if goodbye messages are enabled for this guild
 	if (!goodbyeSettings.has(guildId)) return;
