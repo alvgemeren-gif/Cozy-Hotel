@@ -18,11 +18,13 @@ const {
 } = require('discord.js');
 const getMeme = require('./commands/getMeme/getMeme');
 const casinoCommand = require('./commands/casino/casino');
+const ghostmessageCommand = require('./commands/ghostmessage/ghostmessage');
 const welcomeCommand = require('./commands/welcome/welcome');
 const goodbyeCommand = require('./commands/goodbye/goodbye');
 const autoroleCommand = require('./commands/autorole/autorole');
 const ticketCommand = require('./commands/ticket/ticket');
 const keywordroleCommand = require('./commands/keywordrole/keywordrole');
+const keywordreactCommand = require('./commands/keywordreact/keywordreact');
 const levelCommand = require('./commands/level/level');
 const qotdCommand = require('./commands/qotd/qotd');
 const rolecleanupCommand = require('./commands/rolecleanup/rolecleanup');
@@ -138,6 +140,7 @@ deployCommands();
 client.once(Events.ClientReady, c => {
 	console.log(`Ready! Logged in as ${c.user.tag}`);
 	qotdCommand.startQotdScheduler(client);
+	ghostmessageCommand.startGhostScheduler(client);
 });
 
 // Handle counting game messages
@@ -150,6 +153,9 @@ client.on(Events.MessageCreate, async message => {
 
 	// Handle keyword-based role assignment in every server channel
 	await keywordroleCommand.checkKeywordAndAssignRole(message);
+
+	// Handle keyword-based emoji reactions in every server channel
+	await keywordreactCommand.checkKeywordAndReact(message);
 
 	// Handle XP, level-ups, and level role rewards
 	await levelCommand.handleLevelMessage(message);
