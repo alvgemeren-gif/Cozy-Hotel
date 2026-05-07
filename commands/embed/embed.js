@@ -1,4 +1,13 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const {
+	SlashCommandBuilder,
+	EmbedBuilder,
+	PermissionFlagsBits,
+	ChannelType,
+	ModalBuilder,
+	TextInputBuilder,
+	TextInputStyle,
+	ActionRowBuilder,
+} = require('discord.js');
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -10,20 +19,6 @@ module.exports = {
 				.setDescription('The channel where the embed should be sent')
 				.addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
 				.setRequired(true)
-		)
-		.addStringOption(option =>
-			option
-				.setName('title')
-				.setDescription('Embed title')
-				.setRequired(true)
-				.setMaxLength(256)
-		)
-		.addStringOption(option =>
-			option
-				.setName('description')
-				.setDescription('Embed description')
-				.setRequired(true)
-				.setMaxLength(4000)
 		)
 		.addStringOption(option =>
 			option
@@ -48,8 +43,6 @@ module.exports = {
 
 	async execute(interaction) {
 		const channel = interaction.options.getChannel('channel');
-		const title = interaction.options.getString('title');
-		const description = interaction.options.getString('description');
 		const image = interaction.options.getString('image');
 		const thumbnail = interaction.options.getString('thumbnail');
 		const footer = interaction.options.getString('footer');
@@ -73,6 +66,41 @@ module.exports = {
 			});
 		}
 
+		const modal = new ModalBuilder()
+			.setCustomId(`embed-modal-${interaction.id}`)
+			.setTitle('Create Embed');
+
+		const titleInput = new TextInputBuilder()
+			.setCustomId('embed-title')
+			.setLabel('Embed title')
+			.setStyle(TextInputStyle.Short)
+			.setMaxLength(256)
+			.setRequired(true);
+
+		const descriptionInput = new TextInputBuilder()
+			.setCustomId('embed-description')
+			.setLabel('Embed description')
+			.setStyle(TextInputStyle.Paragraph)
+			.setMaxLength(4000)
+			.setRequired(true);
+
+		modal.addComponents(
+			new ActionRowBuilder().addComponents(titleInput),
+			new ActionRowBuilder().addComponents(descriptionInput)
+		);
+
+		await interaction.showModal(modal);
+
+		const modalInteraction = await interaction.awaitModalSubmit({
+			filter: submitted => submitted.customId === `embed-modal-${interaction.id}` && submitted.user.id === interaction.user.id,
+			time: 5 * 60 * 1000,
+		}).catch(() => null);
+
+		if (!modalInteraction) return;
+
+		const title = modalInteraction.fields.getTextInputValue('embed-title');
+		const description = modalInteraction.fields.getTextInputValue('embed-description');
+
 		const embed = new EmbedBuilder()
 			.setColor(0x9c7453)
 			.setTitle(title)
@@ -85,7 +113,7 @@ module.exports = {
 
 		await channel.send({ embeds: [embed] });
 
-		return interaction.reply({
+		return modalInteraction.reply({
 			content: `Embed sent in ${channel}.`,
 			ephemeral: true,
 		});
