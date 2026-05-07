@@ -37,6 +37,14 @@ function normalizeKeyword(keyword) {
 	return keyword.trim().toLowerCase();
 }
 
+function parseKeywords(input) {
+	return [...new Set(input
+		.split(',')
+		.map(keyword => normalizeKeyword(keyword))
+		.filter(Boolean))]
+		.slice(0, 10);
+}
+
 function getRoleIds(value) {
 	if (Array.isArray(value)) return [...new Set(value.filter(Boolean))];
 	if (typeof value === 'string') return [value];
@@ -107,10 +115,10 @@ module.exports = {
 				.addStringOption(option =>
 					option
 						.setName('keyword')
-						.setDescription('The exact keyword to trigger the role, for example !room13')
+						.setDescription('One or more exact keywords separated by commas, for example !room13, !key')
 						.setRequired(true)
 						.setMinLength(1)
-						.setMaxLength(100)
+						.setMaxLength(500)
 				)
 				.addRoleOption(option =>
 					option
@@ -167,12 +175,12 @@ module.exports = {
 		const guildId = interaction.guild.id;
 
 		if (subcommand === 'add') {
-			const keyword = normalizeKeyword(interaction.options.getString('keyword'));
+			const keywords = parseKeywords(interaction.options.getString('keyword'));
 			const roles = getRoleOptions(interaction);
 			const validationError = await validateRoles(interaction, roles);
 
-			if (!keyword) {
-				return interaction.reply({ content: 'Please provide a valid keyword.', ephemeral: true });
+			if (keywords.length === 0) {
+				return interaction.reply({ content: 'Please provide at least one valid keyword.', ephemeral: true });
 			}
 
 			if (validationError) {
@@ -181,13 +189,15 @@ module.exports = {
 
 			const guildKeywords = getGuildKeywords(guildId);
 			const roleIds = [...new Set(roles.map(role => role.id))];
-			guildKeywords.set(keyword, roleIds);
+			for (const keyword of keywords) {
+				guildKeywords.set(keyword, roleIds);
+			}
 			saveSettings();
 
 			const embed = new EmbedBuilder()
 				.setColor(0x9c7453)
 				.setTitle('Keyword Role Added')
-				.setDescription(`When someone types \`${keyword}\`, they will receive ${roles.join(', ')}.`)
+				.setDescription(`When someone types ${keywords.map(keyword => `\`${keyword}\``).join(', ')}, they will receive ${roles.join(', ')}.`)
 				.setTimestamp();
 
 			return interaction.reply({ embeds: [embed], ephemeral: true });
