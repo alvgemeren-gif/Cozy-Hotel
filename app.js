@@ -18,6 +18,7 @@ const {
 } = require('discord.js');
 const getMeme = require('./commands/getMeme/getMeme');
 const casinoCommand = require('./commands/casino/casino');
+const countingCommand = require('./commands/counting/counting');
 const ghostmessageCommand = require('./commands/ghostmessage/ghostmessage');
 const welcomeCommand = require('./commands/welcome/welcome');
 const goodbyeCommand = require('./commands/goodbye/goodbye');
@@ -30,11 +31,9 @@ const memberbookCommand = require('./commands/memberbook/memberbook');
 const qotdCommand = require('./commands/qotd/qotd');
 const rolecleanupCommand = require('./commands/rolecleanup/rolecleanup');
 
-// Store counting game state per guild
-const countingGames = new Map();
-
 // Use the shared balances map from casino.js
 const balances = casinoCommand.balances;
+const countingGames = countingCommand.countingGames;
 
 // Use the shared settings from welcome and goodbye commands
 const welcomeSettings = welcomeCommand.welcomeSettings;
@@ -195,7 +194,7 @@ client.on(Events.MessageCreate, async message => {
 		game.lastCounter = message.author.id;
 
 		// Add a checkmark emoji to the user's message
-		await message.react('✅');
+		await message.react('\u2705').catch(() => {});
 
 		// Update the game message
 		const { EmbedBuilder } = require('discord.js');
@@ -241,7 +240,7 @@ client.on(Events.MessageCreate, async message => {
 		game.lastCounter = message.author.id;
 		
 		// Add a cross emoji to indicate mistake
-		await message.react('❌');
+		await message.react('\u274c').catch(() => {});
 		
 		const { EmbedBuilder } = require('discord.js');
 		const mistakeEmbed = new EmbedBuilder()

@@ -1,9 +1,9 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 
 const countingGames = new Map();
-const CORRECT_EMOJI = '✅';
-const WRONG_EMOJI = '❌';
-const WARNING_EMOJI = '⚠️';
+const CORRECT_EMOJI = '\u2705';
+const WRONG_EMOJI = '\u274c';
+const WARNING_EMOJI = '\u26a0\ufe0f';
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -32,83 +32,13 @@ module.exports = {
 
 		countingGames.set(guildId, game);
 
-		const embed = buildCountingEmbed(game, `Started by ${interaction.user.tag}`);
-
 		try {
 			const message = await interaction.channel.send({
 				content: '**Counting game has started.** Type **1** to begin.',
-				embeds: [embed],
+				embeds: [buildCountingEmbed(game, `Started by ${interaction.user.tag}`)],
 			});
 
 			game.message = message;
-
-			const collector = interaction.channel.createMessageCollector({
-				filter: messageToCheck => messageToCheck.channel.id === channelId && !messageToCheck.author.bot,
-			});
-
-			collector.on('collect', async messageToCheck => {
-				const number = parseInt(messageToCheck.content.trim(), 10);
-				if (Number.isNaN(number)) return;
-
-				if (game.lastCounter === messageToCheck.author.id) {
-					await messageToCheck.react(WARNING_EMOJI).catch(() => {});
-					await messageToCheck.delete().catch(() => {});
-
-					const warningEmbed = new EmbedBuilder()
-						.setColor(0x9c7453)
-						.setDescription(`${WARNING_EMOJI} ${messageToCheck.author}, you cannot count twice in a row.`)
-						.setTimestamp();
-
-					await messageToCheck.channel
-						.send({ embeds: [warningEmbed] })
-						.then(sentMessage => setTimeout(() => sentMessage.delete().catch(() => {}), 5000));
-					return;
-				}
-
-				const expectedNumber = game.currentCount + 1;
-
-				if (number === expectedNumber) {
-					game.currentCount = number;
-					game.lastCounter = messageToCheck.author.id;
-
-					await messageToCheck.react(CORRECT_EMOJI).catch(() => {});
-
-					const updatedEmbed = buildCountingEmbed(game, `Last counter: ${messageToCheck.author}`);
-
-					await game.message.edit({
-						content: `${CORRECT_EMOJI} **Counting:** ${game.currentCount}`,
-						embeds: [updatedEmbed],
-					}).catch(error => console.error('Error updating counting message:', error));
-
-					if (game.currentCount % 50 === 0) {
-						const milestoneEmbed = new EmbedBuilder()
-							.setColor(0x9c7453)
-							.setTitle(`Milestone Reached: ${game.currentCount}`)
-							.setDescription(`${messageToCheck.author} helped reach ${game.currentCount}.`)
-							.setTimestamp();
-
-						await messageToCheck.channel.send({ embeds: [milestoneEmbed] });
-					}
-
-					return;
-				}
-
-				game.lastCounter = messageToCheck.author.id;
-
-				await messageToCheck.react(WRONG_EMOJI).catch(() => {});
-
-				const mistakeEmbed = new EmbedBuilder()
-					.setColor(0x9c7453)
-					.setDescription(
-						`${WRONG_EMOJI} ${messageToCheck.author} said **${number}**, but the correct number was **${expectedNumber}**.\n` +
-						`The counting continues from **${expectedNumber}**.`
-					)
-					.setTimestamp();
-
-				await messageToCheck.channel
-					.send({ embeds: [mistakeEmbed] })
-					.then(sentMessage => setTimeout(() => sentMessage.delete().catch(() => {}), 10000));
-			});
 
 			return interaction.reply({
 				content: `Counting game started in <#${channelId}>.`,
@@ -125,6 +55,75 @@ module.exports = {
 		}
 	},
 };
+
+async function handleCountingMessage(message) {
+	if (message.author.bot || !message.guild) return;
+
+	const game = countingGames.get(message.guild.id);
+	if (!game || message.channel.id !== game.channelId) return;
+
+	const number = parseInt(message.content.trim(), 10);
+	if (Number.isNaN(number)) return;
+
+	if (game.lastCounter === message.author.id) {
+		await message.react(WARNING_EMOJI).catch(() => {});
+		await message.delete().catch(() => {});
+
+		const warningEmbed = new EmbedBuilder()
+			.setColor(0x9c7453)
+			.setDescription(`${WARNING_EMOJI} ${message.author}, you cannot count twice in a row.`)
+			.setTimestamp();
+
+		await message.channel
+			.send({ embeds: [warningEmbed] })
+			.then(sentMessage => setTimeout(() => sentMessage.delete().catch(() => {}), 5000));
+		return;
+	}
+
+	const expectedNumber = game.currentCount + 1;
+
+	if (number === expectedNumber) {
+		game.currentCount = number;
+		game.lastCounter = message.author.id;
+
+		await message.react(CORRECT_EMOJI).catch(() => {});
+
+		if (game.message) {
+			await game.message.edit({
+				content: `${CORRECT_EMOJI} **Counting:** ${game.currentCount}`,
+				embeds: [buildCountingEmbed(game, `Last counter: ${message.author.tag}`)],
+			}).catch(error => console.error('Error updating counting message:', error));
+		}
+
+		if (game.currentCount % 50 === 0) {
+			const milestoneEmbed = new EmbedBuilder()
+				.setColor(0x9c7453)
+				.setTitle(`Milestone Reached: ${game.currentCount}`)
+				.setDescription(`${message.author} helped reach ${game.currentCount}.`)
+				.setTimestamp();
+
+			await message.channel.send({ embeds: [milestoneEmbed] });
+		}
+
+		return;
+	}
+
+	game.lastCounter = message.author.id;
+
+	await message.react(WRONG_EMOJI).catch(() => {});
+
+	const mistakeEmbed = new EmbedBuilder()
+		.setColor(0x9c7453)
+		.setDescription(
+			`${WRONG_EMOJI} ${message.author} said **${number}**, but the correct number was **${expectedNumber}**.\n` +
+			`The counting continues from **${expectedNumber}**.`
+		)
+		.setTimestamp();
+
+	await message.channel
+		.send({ embeds: [mistakeEmbed] })
+		.then(sentMessage => setTimeout(() => sentMessage.delete().catch(() => {}), 10000));
+}
 
 function buildCountingEmbed(game, footerText) {
 	return new EmbedBuilder()
@@ -144,3 +143,4 @@ function buildCountingEmbed(game, footerText) {
 }
 
 module.exports.countingGames = countingGames;
+module.exports.handleCountingMessage = handleCountingMessage;

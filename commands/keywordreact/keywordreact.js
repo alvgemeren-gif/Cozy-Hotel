@@ -34,6 +34,14 @@ function normalizeKeyword(keyword) {
 	return keyword.trim().toLowerCase();
 }
 
+function parseKeywords(input) {
+	return [...new Set(input
+		.split(',')
+		.map(keyword => normalizeKeyword(keyword))
+		.filter(Boolean))]
+		.slice(0, 10);
+}
+
 function getGuildKeywords(guildId) {
 	if (!keywordReactions.has(guildId)) {
 		keywordReactions.set(guildId, new Map());
@@ -57,10 +65,10 @@ module.exports = {
 				.addStringOption(option =>
 					option
 						.setName('keyword')
-						.setDescription('The word or exact message to react to')
+						.setDescription('One or more keywords separated by commas')
 						.setRequired(true)
 						.setMinLength(1)
-						.setMaxLength(100)
+						.setMaxLength(500)
 				)
 				.addStringOption(option =>
 					option
@@ -106,12 +114,12 @@ module.exports = {
 		const guildId = interaction.guild.id;
 
 		if (subcommand === 'add') {
-			const keyword = normalizeKeyword(interaction.options.getString('keyword'));
+			const keywords = parseKeywords(interaction.options.getString('keyword'));
 			const emojis = parseEmojis(interaction.options.getString('emojis'));
 			const exact = interaction.options.getBoolean('exact') ?? false;
 
-			if (!keyword) {
-				return interaction.reply({ content: 'Please provide a valid keyword.', ephemeral: true });
+			if (keywords.length === 0) {
+				return interaction.reply({ content: 'Please provide at least one valid keyword.', ephemeral: true });
 			}
 
 			if (emojis.length === 0) {
@@ -119,11 +127,13 @@ module.exports = {
 			}
 
 			const guildKeywords = getGuildKeywords(guildId);
-			guildKeywords.set(keyword, { emojis, exact });
+			for (const keyword of keywords) {
+				guildKeywords.set(keyword, { emojis, exact });
+			}
 			saveSettings();
 
 			return interaction.reply({
-				content: `I will react with ${emojis.join(' ')} when someone ${exact ? 'types exactly' : 'mentions'} \`${keyword}\`.`,
+				content: `I will react with ${emojis.join(' ')} when someone ${exact ? 'types exactly' : 'mentions'}: ${keywords.map(keyword => `\`${keyword}\``).join(', ')}.`,
 				ephemeral: true,
 			});
 		}
