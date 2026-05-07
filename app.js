@@ -25,6 +25,7 @@ const ticketCommand = require('./commands/ticket/ticket');
 const keywordroleCommand = require('./commands/keywordrole/keywordrole');
 const levelCommand = require('./commands/level/level');
 const qotdCommand = require('./commands/qotd/qotd');
+const rolecleanupCommand = require('./commands/rolecleanup/rolecleanup');
 
 // Store counting game state per guild
 const countingGames = new Map();
@@ -290,6 +291,10 @@ client.on(Events.GuildMemberRemove, async member => {
 	
 	// Send goodbye message
 	goodbyeCommand.sendGoodbyeMessage(member.user, member.guild, goodbyeChannel, settings.message);
+});
+
+client.on(Events.GuildMemberUpdate, async (_oldMember, newMember) => {
+	await rolecleanupCommand.handleMemberRoleCleanup(newMember);
 });
 
 	client.on(Events.InteractionCreate, async interaction => {
