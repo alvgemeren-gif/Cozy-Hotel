@@ -261,10 +261,14 @@ client.on(Events.MessageCreate, async message => {
 client.on(Events.GuildMemberAdd, async member => {
 	const guildId = member.guild.id;
 
-	await memberbookCommand.handleMemberJoin(member);
+	await memberbookCommand.handleMemberJoin(member).catch(error => {
+		console.error('Error updating member book on join:', error);
+	});
 	
 	// Handle autorole - assign role automatically
-	await autoroleCommand.assignAutorole(member);
+	await autoroleCommand.assignAutorole(member).catch(error => {
+		console.error('Error assigning autorole on join:', error);
+	});
 	
 	// Check if welcome messages are enabled for this guild
 	if (!welcomeSettings.has(guildId)) return;
@@ -279,14 +283,16 @@ client.on(Events.GuildMemberAdd, async member => {
 	}
 	
 	// Send welcome message
-	welcomeCommand.sendWelcomeMessage(member, welcomeChannel, settings.message);
+	await welcomeCommand.sendWelcomeMessage(member, welcomeChannel, settings.message);
 });
 
 // Handle goodbye messages when members leave
 client.on(Events.GuildMemberRemove, async member => {
 	const guildId = member.guild.id;
 
-	await memberbookCommand.handleMemberLeave(member);
+	await memberbookCommand.handleMemberLeave(member).catch(error => {
+		console.error('Error updating member book on leave:', error);
+	});
 	
 	// Check if goodbye messages are enabled for this guild
 	if (!goodbyeSettings.has(guildId)) return;
@@ -301,7 +307,7 @@ client.on(Events.GuildMemberRemove, async member => {
 	}
 	
 	// Send goodbye message
-	goodbyeCommand.sendGoodbyeMessage(member.user, member.guild, goodbyeChannel, settings.message);
+	await goodbyeCommand.sendGoodbyeMessage(member.user, member.guild, goodbyeChannel, settings.message);
 });
 
 client.on(Events.GuildMemberUpdate, async (_oldMember, newMember) => {

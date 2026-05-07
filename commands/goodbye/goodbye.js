@@ -101,6 +101,12 @@ module.exports = {
 async function sendGoodbyeMessage(user, guild, goodbyeChannel, customMessage = defaultLeaveMessage) {
 	if (!goodbyeChannel?.isTextBased()) return;
 
+	const botMember = guild.members.me || await guild.members.fetchMe();
+	if (!goodbyeChannel.permissionsFor(botMember).has(requiredBotPermissions)) {
+		console.warn(`Missing permissions for leave channel ${goodbyeChannel.id} in guild ${guild.id}`);
+		return;
+	}
+
 	const message = formatMessage(customMessage, user, guild);
 	const embed = new EmbedBuilder()
 		.setColor(0x9c7453)

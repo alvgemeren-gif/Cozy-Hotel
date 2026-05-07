@@ -101,6 +101,12 @@ module.exports = {
 async function sendWelcomeMessage(member, welcomeChannel, customMessage = defaultWelcomeMessage) {
 	if (!welcomeChannel?.isTextBased()) return;
 
+	const botMember = member.guild.members.me || await member.guild.members.fetchMe();
+	if (!welcomeChannel.permissionsFor(botMember).has(requiredBotPermissions)) {
+		console.warn(`Missing permissions for welcome channel ${welcomeChannel.id} in guild ${member.guild.id}`);
+		return;
+	}
+
 	const message = formatMessage(customMessage, member);
 	const embed = new EmbedBuilder()
 		.setColor(0x9c7453)
