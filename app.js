@@ -3,7 +3,19 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const deployCommands = require('./deploy/deployCommands');
-const { Client, Collection, Events, GatewayIntentBits, REST, Routes } = require('discord.js');
+const {
+	Client,
+	Collection,
+	Events,
+	GatewayIntentBits,
+	EmbedBuilder,
+	ActionRowBuilder,
+	ModalBuilder,
+	TextInputBuilder,
+	TextInputStyle,
+	ChannelType,
+	PermissionFlagsBits,
+} = require('discord.js');
 const getMeme = require('./commands/getMeme/getMeme');
 const casinoCommand = require('./commands/casino/casino');
 const welcomeCommand = require('./commands/welcome/welcome');
@@ -11,6 +23,7 @@ const goodbyeCommand = require('./commands/goodbye/goodbye');
 const autoroleCommand = require('./commands/autorole/autorole');
 const ticketCommand = require('./commands/ticket/ticket');
 const keywordroleCommand = require('./commands/keywordrole/keywordrole');
+const levelCommand = require('./commands/level/level');
 
 // Store counting game state per guild
 const countingGames = new Map();
@@ -74,6 +87,17 @@ function getTicketColor(type) {
 	return colors[type] || 0x5865F2;
 }
 
+function getTicketChannelName(type, user) {
+	const cleanUsername = user.username
+		.toLowerCase()
+		.replace(/[^a-z0-9-]/g, '-')
+		.replace(/-+/g, '-')
+		.replace(/^-|-$/g, '')
+		.slice(0, 24) || 'user';
+
+	return `ticket-${type}-${cleanUsername}`.slice(0, 90);
+}
+
 const client = new Client({
 	intents: [
 		GatewayIntentBits.Guilds,
@@ -123,6 +147,9 @@ client.on(Events.MessageCreate, async message => {
 
 	// Handle keyword-based role assignment in every server channel
 	await keywordroleCommand.checkKeywordAndAssignRole(message);
+
+	// Handle XP, level-ups, and level role rewards
+	await levelCommand.handleLevelMessage(message);
 
 	// Check if there's an active counting game in this guild
 	if (!countingGames.has(guildId)) return;
@@ -397,7 +424,7 @@ client.on(Events.GuildMemberRemove, async member => {
 				} else if (ticketType === 'partnership') {
 					const membersInput = new TextInputBuilder()
 						.setCustomId('ticket-members')
-						.setLabel('How many members does your server have? (excl. bots)')
+						.setLabel('How many members does your server have?')
 						.setStyle(TextInputStyle.Short)
 						.setPlaceholder('e.g., 500')
 						.setRequired(true);
@@ -535,6 +562,8 @@ client.on(Events.GuildMemberRemove, async member => {
 						ephemeral: true
 					});
 				}
+
+				await interaction.deferReply({ ephemeral: true });
 				
 				// Create ticket embed based on type
 				const embed = new EmbedBuilder()
@@ -616,6 +645,58 @@ client.on(Events.GuildMemberRemove, async member => {
 						});
 					}
 				}
+
+				try {
+					const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
+					const ticketChannel = await interaction.guild.channels.create({
+						name: getTicketChannelName(ticketType, interaction.user),
+						type: ChannelType.GuildText,
+						parent: interaction.channel.parentId,
+						topic: `Ticket for ${interaction.user.tag} (${interaction.user.id}) - ${getTicketTitle(ticketType)}`,
+						permissionOverwrites: [
+							{
+								id: interaction.guild.id,
+								deny: [PermissionFlagsBits.ViewChannel],
+							},
+							{
+								id: interaction.user.id,
+								allow: [
+									PermissionFlagsBits.ViewChannel,
+									PermissionFlagsBits.SendMessages,
+									PermissionFlagsBits.ReadMessageHistory,
+									PermissionFlagsBits.AttachFiles,
+									PermissionFlagsBits.EmbedLinks,
+								],
+							},
+							{
+								id: botMember.id,
+								allow: [
+									PermissionFlagsBits.ViewChannel,
+									PermissionFlagsBits.SendMessages,
+									PermissionFlagsBits.ReadMessageHistory,
+									PermissionFlagsBits.ManageChannels,
+									PermissionFlagsBits.EmbedLinks,
+								],
+							},
+						],
+					});
+
+					await ticketChannel.send({
+						content: `🎫 ${interaction.user} **New ticket received!** Staff members will respond as soon as possible.`,
+						embeds: [embed]
+					});
+
+					await interaction.editReply({
+						content: `✅ Your ${getTicketTitle(ticketType).toLowerCase()} ticket has been created: ${ticketChannel}`,
+					});
+				} catch (error) {
+					console.error('Error creating ticket channel:', error);
+					await interaction.editReply({
+						content: '❌ I could not create your ticket. Make sure I have Manage Channels, View Channel, Send Messages, and Embed Links permissions.',
+					});
+				}
+
+				return;
 				
 				// Send ticket to channel
 				await interaction.channel.send({

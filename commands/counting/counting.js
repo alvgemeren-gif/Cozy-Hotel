@@ -1,6 +1,9 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 
 const countingGames = new Map();
+const CORRECT_EMOJI = '✅';
+const WRONG_EMOJI = '❌';
+const WARNING_EMOJI = '⚠️';
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -48,11 +51,12 @@ module.exports = {
 				if (Number.isNaN(number)) return;
 
 				if (game.lastCounter === messageToCheck.author.id) {
+					await messageToCheck.react(WARNING_EMOJI).catch(() => {});
 					await messageToCheck.delete().catch(() => {});
 
 					const warningEmbed = new EmbedBuilder()
 						.setColor(0xFF0000)
-						.setDescription(`${messageToCheck.author}, you cannot count twice in a row.`)
+						.setDescription(`${WARNING_EMOJI} ${messageToCheck.author}, you cannot count twice in a row.`)
 						.setTimestamp();
 
 					await messageToCheck.channel
@@ -67,10 +71,12 @@ module.exports = {
 					game.currentCount = number;
 					game.lastCounter = messageToCheck.author.id;
 
+					await messageToCheck.react(CORRECT_EMOJI).catch(() => {});
+
 					const updatedEmbed = buildCountingEmbed(game, `Last counter: ${messageToCheck.author}`);
 
 					await game.message.edit({
-						content: `**Counting:** ${game.currentCount}`,
+						content: `${CORRECT_EMOJI} **Counting:** ${game.currentCount}`,
 						embeds: [updatedEmbed],
 					}).catch(error => console.error('Error updating counting message:', error));
 
@@ -89,10 +95,12 @@ module.exports = {
 
 				game.lastCounter = messageToCheck.author.id;
 
+				await messageToCheck.react(WRONG_EMOJI).catch(() => {});
+
 				const mistakeEmbed = new EmbedBuilder()
 					.setColor(0xFFA500)
 					.setDescription(
-						`${messageToCheck.author} said **${number}**, but the correct number was **${expectedNumber}**.\n` +
+						`${WRONG_EMOJI} ${messageToCheck.author} said **${number}**, but the correct number was **${expectedNumber}**.\n` +
 						`The counting continues from **${expectedNumber}**.`
 					)
 					.setTimestamp();

@@ -38,42 +38,33 @@ const words = [
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName('wordle')
-		.setDescription('Start a Wordle game in this channel')
-		.addStringOption(option =>
-			option
-				.setName('word')
-				.setDescription('Optional custom 5-letter word')
-				.setRequired(false)
-				.setMinLength(5)
-				.setMaxLength(5)
-		),
+		.setDescription('Start your own Wordle game'),
 
 	async execute(interaction) {
-		const channelId = interaction.channel.id;
+		const userId = interaction.user.id;
 
-		if (activeGames.has(channelId)) {
+		if (activeGames.has(userId)) {
 			return interaction.reply({
-				content: 'A Wordle game is already running in this channel.',
+				content: 'You already have a Wordle game running.',
 				ephemeral: true,
 			});
 		}
 
-		const customWord = sanitizeWord(interaction.options.getString('word'));
-		const answer = customWord || words[Math.floor(Math.random() * words.length)];
+		const answer = words[Math.floor(Math.random() * words.length)];
 		const game = {
 			answer,
 			guesses: [],
-			startedBy: interaction.user.id,
+			startedBy: userId,
 		};
 
-		activeGames.set(channelId, game);
+		activeGames.set(userId, game);
 
 		await interaction.reply({
-			embeds: [buildEmbed(game, `Game started by ${interaction.user}. Guess a 5-letter word in chat.`)],
+			embeds: [buildEmbed(game, `${interaction.user}, guess a 5-letter word in chat.`)],
 		});
 
 		const collector = interaction.channel.createMessageCollector({
-			filter: message => !message.author.bot,
+			filter: message => !message.author.bot && message.author.id === userId,
 			time: 10 * 60 * 1000,
 		});
 
@@ -84,7 +75,7 @@ module.exports = {
 			game.guesses.push({ word: guess, user: message.author.id });
 
 			if (guess === game.answer) {
-				activeGames.delete(channelId);
+				activeGames.delete(userId);
 				collector.stop('won');
 				return message.channel.send({
 					embeds: [buildEmbed(game, `${message.author} solved it in ${game.guesses.length}/6 guesses.`)],
@@ -92,7 +83,7 @@ module.exports = {
 			}
 
 			if (game.guesses.length >= 6) {
-				activeGames.delete(channelId);
+				activeGames.delete(userId);
 				collector.stop('lost');
 				return message.channel.send({
 					embeds: [buildEmbed(game, `Game over. The word was **${game.answer.toUpperCase()}**.`)],
@@ -106,9 +97,9 @@ module.exports = {
 
 		collector.on('end', async (_collected, reason) => {
 			if (reason === 'won' || reason === 'lost') return;
-			if (!activeGames.has(channelId)) return;
+			if (!activeGames.has(userId)) return;
 
-			activeGames.delete(channelId);
+			activeGames.delete(userId);
 			await interaction.channel.send(`The Wordle game ended. The word was **${answer.toUpperCase()}**.`);
 		});
 	},

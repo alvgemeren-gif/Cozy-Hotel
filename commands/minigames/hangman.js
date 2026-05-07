@@ -33,43 +33,34 @@ const stages = [
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName('hangman')
-		.setDescription('Start a game of hangman in this channel')
-		.addStringOption(option =>
-			option
-				.setName('word')
-				.setDescription('Optional custom word for this game')
-				.setRequired(false)
-				.setMinLength(3)
-				.setMaxLength(24)
-		),
+		.setDescription('Start your own game of hangman'),
 
 	async execute(interaction) {
-		const channelId = interaction.channel.id;
+		const userId = interaction.user.id;
 
-		if (activeGames.has(channelId)) {
+		if (activeGames.has(userId)) {
 			return interaction.reply({
-				content: 'A hangman game is already running in this channel.',
+				content: 'You already have a hangman game running.',
 				ephemeral: true,
 			});
 		}
 
-		const customWord = interaction.options.getString('word');
-		const word = sanitizeWord(customWord) || words[Math.floor(Math.random() * words.length)];
+		const word = words[Math.floor(Math.random() * words.length)];
 		const game = {
 			word,
 			guessed: new Set(),
 			wrong: new Set(),
-			startedBy: interaction.user.id,
+			startedBy: userId,
 		};
 
-		activeGames.set(channelId, game);
+		activeGames.set(userId, game);
 
 		await interaction.reply({
-			embeds: [buildEmbed(game, `Game started by ${interaction.user}. Guess a letter or the full word in chat.`)],
+			embeds: [buildEmbed(game, `${interaction.user}, guess a letter or the full word in chat.`)],
 		});
 
 		const collector = interaction.channel.createMessageCollector({
-			filter: message => !message.author.bot,
+			filter: message => !message.author.bot && message.author.id === userId,
 			time: 10 * 60 * 1000,
 		});
 
@@ -81,7 +72,7 @@ module.exports = {
 			if (!result.changed) return;
 
 			if (result.won) {
-				activeGames.delete(channelId);
+				activeGames.delete(userId);
 				collector.stop('won');
 				return message.channel.send({
 					embeds: [buildEmbed(game, `${message.author} solved it. The word was **${game.word}**.`)],
@@ -89,7 +80,7 @@ module.exports = {
 			}
 
 			if (result.lost) {
-				activeGames.delete(channelId);
+				activeGames.delete(userId);
 				collector.stop('lost');
 				return message.channel.send({
 					embeds: [buildEmbed(game, `Game over. The word was **${game.word}**.`)],
@@ -103,19 +94,13 @@ module.exports = {
 
 		collector.on('end', async (_collected, reason) => {
 			if (reason === 'won' || reason === 'lost') return;
-			if (!activeGames.has(channelId)) return;
+			if (!activeGames.has(userId)) return;
 
-			activeGames.delete(channelId);
+			activeGames.delete(userId);
 			await interaction.channel.send('The hangman game ended because nobody guessed for 10 minutes.');
 		});
 	},
 };
-
-function sanitizeWord(word) {
-	if (!word) return null;
-	const normalized = word.toLowerCase().replace(/[^a-z]/g, '');
-	return normalized.length >= 3 ? normalized : null;
-}
 
 function sanitizeGuess(content) {
 	const guess = content.trim().toLowerCase();

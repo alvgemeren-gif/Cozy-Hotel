@@ -71,6 +71,13 @@ module.exports = {
 			|| 'Select the type of support you need below. Our team will respond to your ticket as soon as possible.';
 		const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
 
+		if (!botMember.permissions.has(PermissionFlagsBits.ManageChannels)) {
+			return interaction.reply({
+				content: 'I need the Manage Channels permission to create ticket channels.',
+				ephemeral: true,
+			});
+		}
+
 		if (!channel.permissionsFor(botMember).has([
 			PermissionFlagsBits.ViewChannel,
 			PermissionFlagsBits.SendMessages,

@@ -20,7 +20,10 @@ function saveSettings() {
 	try {
 		const data = {};
 		for (const [guildId, entries] of keywordRoles) {
-			data[guildId] = Object.fromEntries(entries);
+			data[guildId] = {};
+			for (const [keyword, roleIds] of entries) {
+				data[guildId][keyword] = getRoleIds(roleIds);
+			}
 		}
 
 		fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
@@ -34,7 +37,22 @@ function normalizeKeyword(keyword) {
 	return keyword.trim().toLowerCase();
 }
 
-async function validateRole(interaction, role) {
+function getRoleIds(value) {
+	if (Array.isArray(value)) return [...new Set(value.filter(Boolean))];
+	if (typeof value === 'string') return [value];
+	if (value?.roleIds && Array.isArray(value.roleIds)) return [...new Set(value.roleIds.filter(Boolean))];
+	if (value?.roleId) return [value.roleId];
+
+	return [];
+}
+
+function getRoleOptions(interaction) {
+	return ['role', 'role2', 'role3', 'role4', 'role5']
+		.map(name => interaction.options.getRole(name))
+		.filter(Boolean);
+}
+
+async function validateRoles(interaction, roles) {
 	const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
 
 	if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
@@ -45,23 +63,29 @@ async function validateRole(interaction, role) {
 		return 'I need the Manage Messages permission to delete keyword trigger messages.';
 	}
 
-	if (role.id === interaction.guild.id) {
-		return 'The @everyone role cannot be used as a keyword role.';
-	}
+	const problems = roles
+		.map(role => {
+			if (role.id === interaction.guild.id) {
+				return 'The @everyone role cannot be used as a keyword role.';
+			}
 
-	if (role.managed) {
-		return `${role} is managed by an integration and cannot be assigned.`;
-	}
+			if (role.managed) {
+				return `${role} is managed by an integration and cannot be assigned.`;
+			}
 
-	if (role.position >= botMember.roles.highest.position) {
-		return `${role} must be lower than my highest role.`;
-	}
+			if (role.position >= botMember.roles.highest.position) {
+				return `${role} must be lower than my highest role.`;
+			}
 
-	if (!role.editable) {
-		return `${role} cannot be managed by me.`;
-	}
+			if (!role.editable) {
+				return `${role} cannot be managed by me.`;
+			}
 
-	return null;
+			return null;
+		})
+		.filter(Boolean);
+
+	return problems.length ? problems.join('\n') : null;
 }
 
 function getGuildKeywords(guildId) {
@@ -91,8 +115,32 @@ module.exports = {
 				.addRoleOption(option =>
 					option
 						.setName('role')
-						.setDescription('The role to give when the keyword is typed')
+						.setDescription('The first role to give when the keyword is typed')
 						.setRequired(true)
+				)
+				.addRoleOption(option =>
+					option
+						.setName('role2')
+						.setDescription('The second role to give')
+						.setRequired(false)
+				)
+				.addRoleOption(option =>
+					option
+						.setName('role3')
+						.setDescription('The third role to give')
+						.setRequired(false)
+				)
+				.addRoleOption(option =>
+					option
+						.setName('role4')
+						.setDescription('The fourth role to give')
+						.setRequired(false)
+				)
+				.addRoleOption(option =>
+					option
+						.setName('role5')
+						.setDescription('The fifth role to give')
+						.setRequired(false)
 				)
 		)
 		.addSubcommand(subcommand =>
@@ -120,8 +168,8 @@ module.exports = {
 
 		if (subcommand === 'add') {
 			const keyword = normalizeKeyword(interaction.options.getString('keyword'));
-			const role = interaction.options.getRole('role');
-			const validationError = await validateRole(interaction, role);
+			const roles = getRoleOptions(interaction);
+			const validationError = await validateRoles(interaction, roles);
 
 			if (!keyword) {
 				return interaction.reply({ content: 'Please provide a valid keyword.', ephemeral: true });
@@ -132,13 +180,14 @@ module.exports = {
 			}
 
 			const guildKeywords = getGuildKeywords(guildId);
-			guildKeywords.set(keyword, role.id);
+			const roleIds = [...new Set(roles.map(role => role.id))];
+			guildKeywords.set(keyword, roleIds);
 			saveSettings();
 
 			const embed = new EmbedBuilder()
 				.setColor(0x2ecc71)
 				.setTitle('Keyword Role Added')
-				.setDescription(`When someone types \`${keyword}\`, they will receive ${role}.`)
+				.setDescription(`When someone types \`${keyword}\`, they will receive ${roles.join(', ')}.`)
 				.setTimestamp();
 
 			return interaction.reply({ embeds: [embed], ephemeral: true });
@@ -181,9 +230,10 @@ module.exports = {
 			}
 
 			const lines = [];
-			for (const [keyword, roleId] of guildKeywords) {
-				const role = interaction.guild.roles.cache.get(roleId);
-				lines.push(`\`${keyword}\` -> ${role || 'Role not found'}`);
+			for (const [keyword, storedRoleIds] of guildKeywords) {
+				const roles = getRoleIds(storedRoleIds)
+					.map(roleId => interaction.guild.roles.cache.get(roleId) || `Role not found (${roleId})`);
+				lines.push(`\`${keyword}\` -> ${roles.join(', ') || 'No roles configured'}`);
 			}
 
 			const embed = new EmbedBuilder()
@@ -206,13 +256,16 @@ async function checkKeywordAndAssignRole(message) {
 	const messageContent = normalizeKeyword(message.content);
 	if (!guildKeywords.has(messageContent)) return;
 
-	const roleId = guildKeywords.get(messageContent);
-	const role = await message.guild.roles.fetch(roleId).catch(() => null);
+	const roleIds = getRoleIds(guildKeywords.get(messageContent));
+	const roles = (await Promise.all(
+		roleIds.map(roleId => message.guild.roles.fetch(roleId).catch(() => null))
+	)).filter(Boolean);
+
 	await message.delete().catch(error => {
 		console.error('Error deleting keyword trigger message:', error);
 	});
 
-	if (!role) {
+	if (roles.length === 0) {
 		guildKeywords.delete(messageContent);
 		if (guildKeywords.size === 0) {
 			keywordRoles.delete(message.guild.id);
@@ -221,14 +274,15 @@ async function checkKeywordAndAssignRole(message) {
 		return;
 	}
 
-	if (message.member.roles.cache.has(role.id)) return;
+	const missingRoles = roles.filter(role => !message.member.roles.cache.has(role.id));
+	if (missingRoles.length === 0) return;
 
 	try {
-		await message.member.roles.add(role, `Keyword role triggered by ${messageContent}`);
+		await message.member.roles.add(missingRoles, `Keyword role triggered by ${messageContent}`);
 
 		const embed = new EmbedBuilder()
 			.setColor(0x2ecc71)
-			.setDescription(`You received the **${role.name}** role in **${message.guild.name}**.`)
+			.setDescription(`You received these roles in **${message.guild.name}**: ${missingRoles.map(role => `**${role.name}**`).join(', ')}.`)
 			.setFooter({ text: `Triggered by: ${messageContent}` })
 			.setTimestamp();
 

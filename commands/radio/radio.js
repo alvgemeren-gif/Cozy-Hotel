@@ -16,6 +16,7 @@ const {
 const play = require('play-dl');
 
 const radioStations = new Map();
+const MAX_SKIPS_IN_ROW = 10;
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -87,6 +88,7 @@ async function startRadio(interaction) {
 
 	const voiceChannel = interaction.options.getChannel('channel');
 	const playlistUrl = interaction.options.getString('playlist');
+	const normalizedPlaylistUrl = normalizeSpotifyPlaylistUrl(playlistUrl);
 	const shuffle = interaction.options.getBoolean('shuffle') ?? true;
 	const maxTracks = interaction.options.getInteger('max_tracks') || 50;
 	const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
@@ -96,22 +98,21 @@ async function startRadio(interaction) {
 		return interaction.editReply(`I need Connect and Speak permissions in ${voiceChannel}.`);
 	}
 
-	if (play.sp_validate(playlistUrl) !== 'playlist') {
+	if (!normalizedPlaylistUrl || play.sp_validate(normalizedPlaylistUrl) !== 'playlist') {
 		return interaction.editReply('Please provide a valid Spotify playlist URL.');
 	}
 
 	stopStation(interaction.guild.id);
 
 	try {
-		const playlist = await play.spotify(playlistUrl);
+		await configureSpotifyToken();
+
+		const playlist = await play.spotify(normalizedPlaylistUrl);
 		if (playlist.type !== 'playlist') {
 			return interaction.editReply('That Spotify URL is not a playlist.');
 		}
 
-		const allTracks = await playlist.all_tracks();
-		const playableTracks = allTracks
-			.filter(track => track?.playable !== false)
-			.slice(0, maxTracks);
+		const playableTracks = await getSpotifyPlaylistTracks(playlist, maxTracks);
 
 		if (playableTracks.length === 0) {
 			return interaction.editReply('I could not find playable tracks in that playlist.');
@@ -130,12 +131,14 @@ async function startRadio(interaction) {
 			connection,
 			player,
 			playlistName: playlist.name,
-			playlistUrl,
+			playlistUrl: normalizedPlaylistUrl,
 			voiceChannelId: voiceChannel.id,
 			textChannelId: interaction.channel.id,
 			tracks: stationTracks,
 			index: 0,
 			current: null,
+			skippedTracks: 0,
+			skipsInRow: 0,
 			stopped: false,
 		};
 
@@ -177,15 +180,80 @@ async function startRadio(interaction) {
 				{ name: 'Tracks Loaded', value: `${station.tracks.length}`, inline: true },
 				{ name: 'Shuffle', value: shuffle ? 'On' : 'Off', inline: true }
 			)
-			.setFooter({ text: 'Spotify is used as the playlist source; audio is resolved from playable streams.' })
+			.setFooter({ text: 'Spotify is used as the playlist source; audio is resolved from YouTube streams.' })
 			.setTimestamp();
 
 		return interaction.editReply({ embeds: [embed] });
 	} catch (error) {
 		console.error('Error starting radio:', error);
 		stopStation(interaction.guild.id);
-		return interaction.editReply('I could not start the radio station. Check the Spotify playlist URL and try again.');
+		return interaction.editReply(getRadioStartErrorMessage(error));
 	}
+}
+
+async function configureSpotifyToken() {
+	const clientId = process.env.SPOTIFY_CLIENT_ID;
+	const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+	const refreshToken = process.env.SPOTIFY_REFRESH_TOKEN;
+	const market = process.env.SPOTIFY_MARKET || 'NL';
+
+	if (!clientId || !clientSecret || !refreshToken) return;
+
+	await play.setToken({
+		spotify: {
+			client_id: clientId,
+			client_secret: clientSecret,
+			refresh_token: refreshToken,
+			market,
+		},
+	});
+
+	if (play.is_expired()) {
+		await play.refreshToken();
+	}
+}
+
+async function getSpotifyPlaylistTracks(playlist, maxTracks) {
+	const allTracks = await playlist.all_tracks();
+
+	return allTracks
+		.filter(track => track?.name && track?.playable !== false)
+		.filter(track => formatArtists(track) !== 'Unknown Artist')
+		.slice(0, maxTracks);
+}
+
+function normalizeSpotifyPlaylistUrl(input) {
+	if (!input) return null;
+
+	const trimmed = input.trim();
+	const uriMatch = trimmed.match(/^spotify:playlist:([a-zA-Z0-9]+)$/);
+	if (uriMatch) {
+		return `https://open.spotify.com/playlist/${uriMatch[1]}`;
+	}
+
+	try {
+		const url = new URL(trimmed);
+		const playlistMatch = url.pathname.match(/\/playlist\/([a-zA-Z0-9]+)/);
+
+		if (!playlistMatch) return null;
+		return `https://open.spotify.com/playlist/${playlistMatch[1]}`;
+	} catch {
+		return null;
+	}
+}
+
+function getRadioStartErrorMessage(error) {
+	const message = error?.message || '';
+
+	if (
+		message.includes('authorization') ||
+		message.includes('access token') ||
+		message.includes('Spotify')
+	) {
+		return 'I could not load that Spotify playlist. Make sure the playlist is public, or configure SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, and SPOTIFY_REFRESH_TOKEN in the bot environment.';
+	}
+
+	return 'I could not start the radio station. Check the Spotify playlist URL and try again.';
 }
 
 async function stopRadio(interaction) {
@@ -225,6 +293,7 @@ async function showStatus(interaction) {
 		.addFields(
 			{ name: 'Voice Channel', value: `<#${station.voiceChannelId}>`, inline: true },
 			{ name: 'Tracks Loaded', value: `${station.tracks.length}`, inline: true },
+			{ name: 'Skipped Tracks', value: `${station.skippedTracks || 0}`, inline: true },
 			{ name: 'Now Playing', value: current }
 		)
 		.setTimestamp();
@@ -234,6 +303,13 @@ async function showStatus(interaction) {
 
 async function playNext(guild, station) {
 	if (station.stopped) return;
+
+	if (station.skipsInRow >= MAX_SKIPS_IN_ROW) {
+		console.error('Radio stopped after too many tracks failed in a row.');
+		stopStation(guild.id);
+		return;
+	}
+
 	if (station.index >= station.tracks.length) {
 		station.index = 0;
 		station.tracks = shuffleTracks(station.tracks);
@@ -242,27 +318,38 @@ async function playNext(guild, station) {
 	const track = station.tracks[station.index++];
 	station.current = track;
 
-	const query = `${track.name} ${formatArtists(track)} audio`;
-	const results = await play.search(query, {
-		limit: 1,
-		source: { youtube: 'video' },
-	});
+	try {
+		const query = `${track.name} ${formatArtists(track)}`;
+		const results = await play.search(query, {
+			limit: 3,
+			source: { youtube: 'video' },
+		});
 
-	if (!results.length) {
+		const video = results.find(result => !result.live) || results[0];
+		if (!video) {
+			station.skipsInRow++;
+			station.skippedTracks = (station.skippedTracks || 0) + 1;
+			return playNext(guild, station);
+		}
+
+		const stream = await play.stream(video.url);
+		const resource = createAudioResource(stream.stream, {
+			inputType: stream.type,
+			metadata: {
+				title: track.name,
+				artists: formatArtists(track),
+				url: track.url,
+			},
+		});
+
+		station.skipsInRow = 0;
+		station.player.play(resource);
+	} catch (error) {
+		console.error(`Could not play Spotify track "${track.name}":`, error);
+		station.skipsInRow++;
+		station.skippedTracks = (station.skippedTracks || 0) + 1;
 		return playNext(guild, station);
 	}
-
-	const stream = await play.stream(results[0].url);
-	const resource = createAudioResource(stream.stream, {
-		inputType: stream.type,
-		metadata: {
-			title: track.name,
-			artists: formatArtists(track),
-			url: track.url,
-		},
-	});
-
-	station.player.play(resource);
 }
 
 function stopStation(guildId) {
