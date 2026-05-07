@@ -24,6 +24,7 @@ const autoroleCommand = require('./commands/autorole/autorole');
 const ticketCommand = require('./commands/ticket/ticket');
 const keywordroleCommand = require('./commands/keywordrole/keywordrole');
 const levelCommand = require('./commands/level/level');
+const qotdCommand = require('./commands/qotd/qotd');
 
 // Store counting game state per guild
 const countingGames = new Map();
@@ -135,6 +136,7 @@ deployCommands();
 
 client.once(Events.ClientReady, c => {
 	console.log(`Ready! Logged in as ${c.user.tag}`);
+	qotdCommand.startQotdScheduler(client);
 });
 
 // Handle counting game messages

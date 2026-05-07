@@ -1,11 +1,13 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
 const levelsPath = path.join(__dirname, '../../data/levels.json');
 const rewardsPath = path.join(__dirname, '../../data/levelRewards.json');
+const settingsPath = path.join(__dirname, '../../data/levelSettings.json');
 const levelData = new Map(loadMap(levelsPath));
 const levelRewards = new Map(loadRewards());
+const levelSettings = new Map(loadMap(settingsPath));
 const xpCooldowns = new Map();
 
 const XP_COOLDOWN = 60 * 1000;
@@ -52,6 +54,10 @@ function saveRewards() {
 		data[guildId] = Object.fromEntries(rewards);
 	}
 	saveJson(rewardsPath, data);
+}
+
+function saveSettings() {
+	saveJson(settingsPath, Object.fromEntries(levelSettings));
 }
 
 function getGuildLevels(guildId) {
@@ -172,6 +178,23 @@ module.exports = {
 			subcommand
 				.setName('clearrewards')
 				.setDescription('Remove all level role rewards')
+		)
+		.addSubcommand(subcommand =>
+			subcommand
+				.setName('setchannel')
+				.setDescription('Set the channel for level-up messages')
+				.addChannelOption(option =>
+					option
+						.setName('channel')
+						.setDescription('The channel where level-up messages will be posted')
+						.addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+						.setRequired(true)
+				)
+		)
+		.addSubcommand(subcommand =>
+			subcommand
+				.setName('clearchannel')
+				.setDescription('Send level-up messages in the channel where users level up')
 		),
 
 	async execute(interaction) {
@@ -213,7 +236,6 @@ module.exports = {
 						.setDescription(lines.length ? lines.join('\n') : 'No level rewards are configured.')
 						.setTimestamp(),
 				],
-				ephemeral: true,
 			});
 		}
 
@@ -267,6 +289,57 @@ module.exports = {
 
 			return interaction.reply({ content: 'All level rewards have been removed.', ephemeral: true });
 		}
+
+		if (subcommand === 'setchannel') {
+			if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
+				return interaction.reply({ content: 'You need Manage Server to configure the level-up channel.', ephemeral: true });
+			}
+
+			const channel = interaction.options.getChannel('channel');
+			const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
+
+			if (!channel.permissionsFor(botMember).has([
+				PermissionFlagsBits.ViewChannel,
+				PermissionFlagsBits.SendMessages,
+			])) {
+				return interaction.reply({
+					content: `I need View Channel and Send Messages permissions in ${channel}.`,
+					ephemeral: true,
+				});
+			}
+
+			const settings = levelSettings.get(guildId) || {};
+			settings.levelUpChannelId = channel.id;
+			levelSettings.set(guildId, settings);
+			saveSettings();
+
+			return interaction.reply({
+				content: `Level-up messages will now be posted in ${channel}.`,
+				ephemeral: true,
+			});
+		}
+
+		if (subcommand === 'clearchannel') {
+			if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
+				return interaction.reply({ content: 'You need Manage Server to configure the level-up channel.', ephemeral: true });
+			}
+
+			const settings = levelSettings.get(guildId);
+			if (settings) {
+				delete settings.levelUpChannelId;
+				if (Object.keys(settings).length === 0) {
+					levelSettings.delete(guildId);
+				} else {
+					levelSettings.set(guildId, settings);
+				}
+				saveSettings();
+			}
+
+			return interaction.reply({
+				content: 'Level-up messages will now be posted in the channel where the user levels up.',
+				ephemeral: true,
+			});
+		}
 	},
 };
 
@@ -299,9 +372,21 @@ async function handleLevelMessage(message) {
 		? `\nRole reward${awardedRoles.length === 1 ? '' : 's'}: ${awardedRoles.join(', ')}`
 		: '';
 
-	await message.channel.send({
+	const levelUpChannel = await getLevelUpChannel(message);
+
+	await levelUpChannel.send({
 		content: `Level up! ${message.author} reached level **${userData.level}**.${rewardText}`,
 	}).catch(() => {});
+}
+
+async function getLevelUpChannel(message) {
+	const settings = levelSettings.get(message.guild.id);
+	if (!settings?.levelUpChannelId) return message.channel;
+
+	const channel = await message.guild.channels.fetch(settings.levelUpChannelId).catch(() => null);
+	if (!channel || !channel.isTextBased()) return message.channel;
+
+	return channel;
 }
 
 async function assignLevelRewards(member, oldLevel, newLevel) {
@@ -329,4 +414,5 @@ async function assignLevelRewards(member, oldLevel, newLevel) {
 
 module.exports.levelData = levelData;
 module.exports.levelRewards = levelRewards;
+module.exports.levelSettings = levelSettings;
 module.exports.handleLevelMessage = handleLevelMessage;
