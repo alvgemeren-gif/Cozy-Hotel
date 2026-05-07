@@ -173,7 +173,7 @@ async function startRadio(interaction) {
 		await playNext(interaction.guild, station);
 
 		const embed = new EmbedBuilder()
-			.setColor(0x1DB954)
+			.setColor(0x9c7453)
 			.setTitle('Radio Station Started')
 			.setDescription(`Playing **${playlist.name}** in ${voiceChannel}.`)
 			.addFields(
@@ -287,7 +287,7 @@ async function showStatus(interaction) {
 		: 'Loading the next track...';
 
 	const embed = new EmbedBuilder()
-		.setColor(0x1DB954)
+		.setColor(0x9c7453)
 		.setTitle('Radio Station Status')
 		.setDescription(`Playlist: **${station.playlistName}**`)
 		.addFields(

@@ -79,7 +79,7 @@ module.exports = {
 		saveSettings();
 
 		const embed = new EmbedBuilder()
-			.setColor(0xe74c3c)
+			.setColor(0x9c7453)
 			.setTitle('Leave Messages Enabled')
 			.setDescription(`Leave messages will now be sent in ${channel}.`)
 			.addFields(
@@ -103,7 +103,7 @@ async function sendGoodbyeMessage(user, guild, goodbyeChannel, customMessage = d
 
 	const message = formatMessage(customMessage, user, guild);
 	const embed = new EmbedBuilder()
-		.setColor(0xe74c3c)
+		.setColor(0x9c7453)
 		.setTitle('Goodbye')
 		.setDescription(message)
 		.setThumbnail(user.displayAvatarURL())

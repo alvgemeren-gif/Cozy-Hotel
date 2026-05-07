@@ -208,7 +208,7 @@ module.exports = {
 			const rank = getRank(guildId, targetUser.id) || 'Unranked';
 
 			const embed = new EmbedBuilder()
-				.setColor(0x3498db)
+				.setColor(0x9c7453)
 				.setTitle(`${targetUser.username}'s Level`)
 				.setThumbnail(targetUser.displayAvatarURL())
 				.addFields(
@@ -231,7 +231,7 @@ module.exports = {
 			return interaction.reply({
 				embeds: [
 					new EmbedBuilder()
-						.setColor(0x3498db)
+						.setColor(0x9c7453)
 						.setTitle('Level Rewards')
 						.setDescription(lines.length ? lines.join('\n') : 'No level rewards are configured.')
 						.setTimestamp(),

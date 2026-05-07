@@ -175,7 +175,7 @@ module.exports = {
 
 			const roleIds = saveRoleIds(guildId, roles.map(role => role.id));
 			const embed = new EmbedBuilder()
-				.setColor(0x2ecc71)
+				.setColor(0x9c7453)
 				.setTitle('Autoroles Updated')
 				.setDescription('New members will now automatically receive these roles:')
 				.addFields({ name: 'Roles', value: buildRolesDescription(roleIds, interaction.guild) })
@@ -199,7 +199,7 @@ module.exports = {
 
 			const roleIds = saveRoleIds(guildId, [...currentRoleIds, role.id]);
 			const embed = new EmbedBuilder()
-				.setColor(0x2ecc71)
+				.setColor(0x9c7453)
 				.setTitle('Autorole Added')
 				.setDescription(`${role} was added to the autorole list.`)
 				.addFields({ name: 'Current Roles', value: buildRolesDescription(roleIds, interaction.guild) })
@@ -218,7 +218,7 @@ module.exports = {
 
 			const roleIds = saveRoleIds(guildId, currentRoleIds.filter(roleId => roleId !== role.id));
 			const embed = new EmbedBuilder()
-				.setColor(0xe74c3c)
+				.setColor(0x9c7453)
 				.setTitle('Autorole Removed')
 				.setDescription(`${role} was removed from the autorole list.`)
 				.addFields({ name: 'Current Roles', value: buildRolesDescription(roleIds, interaction.guild) })
@@ -235,7 +235,7 @@ module.exports = {
 			saveRoleIds(guildId, []);
 
 			const embed = new EmbedBuilder()
-				.setColor(0xe74c3c)
+				.setColor(0x9c7453)
 				.setTitle('Autoroles Cleared')
 				.setDescription('New members will no longer receive automatic roles.')
 				.setTimestamp();
@@ -256,7 +256,7 @@ module.exports = {
 			}
 
 			const embed = new EmbedBuilder()
-				.setColor(0x3498db)
+				.setColor(0x9c7453)
 				.setTitle('Current Autoroles')
 				.setDescription('New members automatically receive these roles:')
 				.addFields({ name: 'Roles', value: buildRolesDescription(validRoleIds, interaction.guild) })

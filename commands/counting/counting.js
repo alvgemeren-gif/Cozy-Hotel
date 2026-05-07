@@ -55,7 +55,7 @@ module.exports = {
 					await messageToCheck.delete().catch(() => {});
 
 					const warningEmbed = new EmbedBuilder()
-						.setColor(0xFF0000)
+						.setColor(0x9c7453)
 						.setDescription(`${WARNING_EMOJI} ${messageToCheck.author}, you cannot count twice in a row.`)
 						.setTimestamp();
 
@@ -82,7 +82,7 @@ module.exports = {
 
 					if (game.currentCount % 50 === 0) {
 						const milestoneEmbed = new EmbedBuilder()
-							.setColor(0x00FF00)
+							.setColor(0x9c7453)
 							.setTitle(`Milestone Reached: ${game.currentCount}`)
 							.setDescription(`${messageToCheck.author} helped reach ${game.currentCount}.`)
 							.setTimestamp();
@@ -98,7 +98,7 @@ module.exports = {
 				await messageToCheck.react(WRONG_EMOJI).catch(() => {});
 
 				const mistakeEmbed = new EmbedBuilder()
-					.setColor(0xFFA500)
+					.setColor(0x9c7453)
 					.setDescription(
 						`${WRONG_EMOJI} ${messageToCheck.author} said **${number}**, but the correct number was **${expectedNumber}**.\n` +
 						`The counting continues from **${expectedNumber}**.`

@@ -192,7 +192,7 @@ module.exports = {
 		if (subcommand === 'list') {
 			const rules = roleCleanupSettings.get(guildId) || {};
 			const embed = new EmbedBuilder()
-				.setColor(0x3498db)
+				.setColor(0x9c7453)
 				.setTitle('Role Cleanup Rules')
 				.setDescription(buildRuleList(interaction.guild, rules))
 				.setTimestamp();

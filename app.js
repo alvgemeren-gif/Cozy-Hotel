@@ -171,7 +171,7 @@ client.on(Events.MessageCreate, async message => {
 		await message.delete().catch(() => {});
 		const { EmbedBuilder } = require('discord.js');
 		const warningEmbed = new EmbedBuilder()
-			.setColor(0xFF0000)
+			.setColor(0x9c7453)
 			.setDescription(`⚠️ ${message.author}, you can't count twice in a row!`)
 			.setTimestamp();
 		
@@ -221,7 +221,7 @@ client.on(Events.MessageCreate, async message => {
 		// Celebrate milestones
 		if (game.currentCount % 50 === 0 && game.currentCount > 0) {
 			const milestoneEmbed = new EmbedBuilder()
-				.setColor(0x00FF00)
+				.setColor(0x9c7453)
 				.setTitle(`🎉 Milestone Reached! ${game.currentCount}!`)
 				.setDescription(`${message.author} helped reach ${game.currentCount}!`)
 				.setTimestamp();
@@ -238,7 +238,7 @@ client.on(Events.MessageCreate, async message => {
 		
 		const { EmbedBuilder } = require('discord.js');
 		const mistakeEmbed = new EmbedBuilder()
-			.setColor(0xFFA500)
+			.setColor(0x9c7453)
 			.setDescription(
 				`❌ ${message.author} said **${number}** but the correct number was **${expectedNumber}**!\n` +
 				`The counting continues from **${expectedNumber}**!`
@@ -574,7 +574,7 @@ client.on(Events.GuildMemberUpdate, async (_oldMember, newMember) => {
 				
 				// Create ticket embed based on type
 				const embed = new EmbedBuilder()
-					.setColor(getTicketColor(ticketType))
+					.setColor(0x9c7453)
 					.setTitle(`🎫 ${getTicketTitle(ticketType)}`)
 					.setDescription(`Ticket submitted by ${interaction.user}`)
 					.addFields({ name: 'Type', value: getTicketTitle(ticketType), inline: true })

@@ -182,7 +182,7 @@ function buildEmbed(game, status) {
 	const flags = game.tiles.filter(tile => tile.flagged).length;
 
 	return new EmbedBuilder()
-		.setColor(game.finished ? hasWon(game) ? 0x2ecc71 : 0xe74c3c : 0x3498db)
+		.setColor(0x9c7453)
 		.setTitle('Minesweeper')
 		.setDescription(renderBoard(game))
 		.addFields(

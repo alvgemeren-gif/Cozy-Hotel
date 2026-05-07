@@ -79,7 +79,7 @@ module.exports = {
 		saveSettings();
 
 		const embed = new EmbedBuilder()
-			.setColor(0x2ecc71)
+			.setColor(0x9c7453)
 			.setTitle('Welcome Messages Enabled')
 			.setDescription(`Welcome messages will now be sent in ${channel}.`)
 			.addFields(
@@ -103,7 +103,7 @@ async function sendWelcomeMessage(member, welcomeChannel, customMessage = defaul
 
 	const message = formatMessage(customMessage, member);
 	const embed = new EmbedBuilder()
-		.setColor(0x2ecc71)
+		.setColor(0x9c7453)
 		.setTitle('Welcome')
 		.setDescription(message)
 		.setThumbnail(member.user.displayAvatarURL())

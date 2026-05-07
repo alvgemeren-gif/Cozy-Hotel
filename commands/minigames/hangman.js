@@ -146,7 +146,7 @@ function buildEmbed(game, status) {
 	const stage = stages[Math.min(game.wrong.size, stages.length - 1)];
 
 	return new EmbedBuilder()
-		.setColor(game.wrong.size >= stages.length - 1 ? 0xe74c3c : isWon(game) ? 0x2ecc71 : 0x3498db)
+		.setColor(0x9c7453)
 		.setTitle('Hangman')
 		.setDescription(`${stage}\n**Word:** ${hiddenWord}\n**Wrong guesses:** ${wrongGuesses}`)
 		.addFields({ name: 'Status', value: status })

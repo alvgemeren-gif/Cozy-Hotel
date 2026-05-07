@@ -58,7 +58,7 @@ function getNextQuestion(settings) {
 
 function buildQotdEmbed(question) {
 	return new EmbedBuilder()
-		.setColor(0xf1c40f)
+		.setColor(0x9c7453)
 		.setTitle('Question of the Day')
 		.setDescription(question.text)
 		.setFooter({ text: `Question ${question.number}/${questions.length}` })
@@ -208,7 +208,7 @@ module.exports = {
 			}
 
 			const embed = new EmbedBuilder()
-				.setColor(0x3498db)
+				.setColor(0x9c7453)
 				.setTitle('QOTD Status')
 				.addFields(
 					{ name: 'Channel', value: `<#${settings.channelId}>`, inline: true },

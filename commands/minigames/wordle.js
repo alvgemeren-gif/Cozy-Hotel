@@ -145,7 +145,7 @@ function buildEmbed(game, status) {
 	const letters = renderLetterHelp(game);
 
 	return new EmbedBuilder()
-		.setColor(isSolved(game) ? 0x2ecc71 : game.guesses.length >= MAX_GUESSES ? 0xe74c3c : 0x3498db)
+		.setColor(0x9c7453)
 		.setTitle('Wordle')
 		.setDescription(board)
 		.addFields(

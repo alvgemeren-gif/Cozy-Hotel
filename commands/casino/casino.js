@@ -149,7 +149,7 @@ async function executeWork(interaction) {
 	workCooldowns.set(userId, now);
 
 	const embed = new EmbedBuilder()
-		.setColor(0x2ecc71)
+		.setColor(0x9c7453)
 		.setTitle(job.title)
 		.setDescription(`You worked as a **${job.title}** and earned ${formatCurrency(earnings)}.`)
 		.addFields({ name: 'New Balance', value: formatCurrency(newBalance) })
@@ -164,7 +164,7 @@ async function executeBalance(interaction) {
 	const balance = getBalance(targetUser.id);
 
 	const embed = new EmbedBuilder()
-		.setColor(0xf39c12)
+		.setColor(0x9c7453)
 		.setTitle('Wallet')
 		.setDescription(`${targetUser.tag}'s balance:`)
 		.addFields({ name: 'Balance', value: formatCurrency(balance) })
@@ -209,7 +209,7 @@ async function executeGamble(interaction) {
 
 	const newBalance = setBalance(userId, balance - amount + winnings);
 	const embed = new EmbedBuilder()
-		.setColor(result === 'won' ? 0xf1c40f : result === 'small_win' ? 0xe67e22 : 0xe74c3c)
+		.setColor(0x9c7453)
 		.setTitle('Slot Machine');
 
 	let description = `You bet ${formatCurrency(amount)}.\n\n`;
@@ -250,7 +250,7 @@ async function executeCoinflip(interaction) {
 	const newBalance = setBalance(userId, balance - amount + (won ? amount * 2 : 0));
 
 	const embed = new EmbedBuilder()
-		.setColor(won ? 0x2ecc71 : 0xe74c3c)
+		.setColor(0x9c7453)
 		.setTitle('Coin Flip')
 		.setDescription(`You bet ${formatCurrency(amount)} on **${choice}**.\n\nThe coin landed on **${result}**.`)
 		.addFields({
@@ -307,7 +307,7 @@ async function executeSteal(interaction) {
 		setBalance(userId, getBalance(userId) + stealAmount);
 
 		const embed = new EmbedBuilder()
-			.setColor(0x2ecc71)
+			.setColor(0x9c7453)
 			.setTitle('Successful Heist')
 			.setDescription(`You successfully stole ${formatCurrency(stealAmount)} from ${targetUser.tag}.`)
 			.addFields({ name: 'Your New Balance', value: formatCurrency(getBalance(userId)) })
@@ -320,7 +320,7 @@ async function executeSteal(interaction) {
 	setBalance(userId, getBalance(userId) - penalty);
 
 	const embed = new EmbedBuilder()
-		.setColor(0xe74c3c)
+		.setColor(0x9c7453)
 		.setTitle('Heist Failed')
 		.setDescription(`You tried to steal from ${targetUser.tag} but got caught.`)
 		.addFields({

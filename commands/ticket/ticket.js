@@ -100,7 +100,7 @@ module.exports = {
 			.join('\n');
 
 		const embed = new EmbedBuilder()
-			.setColor(0x5865F2)
+			.setColor(0x9c7453)
 			.setTitle(customTitle)
 			.setDescription(customDescription)
 			.addFields({

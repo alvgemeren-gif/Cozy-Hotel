@@ -27,13 +27,6 @@ module.exports = {
 		)
 		.addStringOption(option =>
 			option
-				.setName('color')
-				.setDescription('Hex color, for example #5865F2')
-				.setRequired(false)
-				.setMaxLength(7)
-		)
-		.addStringOption(option =>
-			option
 				.setName('image')
 				.setDescription('Optional image URL')
 				.setRequired(false)
@@ -57,7 +50,6 @@ module.exports = {
 		const channel = interaction.options.getChannel('channel');
 		const title = interaction.options.getString('title');
 		const description = interaction.options.getString('description');
-		const colorInput = interaction.options.getString('color') || '#5865F2';
 		const image = interaction.options.getString('image');
 		const thumbnail = interaction.options.getString('thumbnail');
 		const footer = interaction.options.getString('footer');
@@ -74,14 +66,6 @@ module.exports = {
 			});
 		}
 
-		const color = parseHexColor(colorInput);
-		if (color === null) {
-			return interaction.reply({
-				content: 'Please use a valid hex color, like `#5865F2` or `5865F2`.',
-				ephemeral: true,
-			});
-		}
-
 		if ((image && !isValidHttpUrl(image)) || (thumbnail && !isValidHttpUrl(thumbnail))) {
 			return interaction.reply({
 				content: 'Image and thumbnail must be valid `http://` or `https://` URLs.',
@@ -90,7 +74,7 @@ module.exports = {
 		}
 
 		const embed = new EmbedBuilder()
-			.setColor(color)
+			.setColor(0x9c7453)
 			.setTitle(title)
 			.setDescription(description)
 			.setTimestamp();
@@ -107,16 +91,6 @@ module.exports = {
 		});
 	},
 };
-
-function parseHexColor(input) {
-	const normalized = input.trim().replace(/^#/, '');
-
-	if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
-		return null;
-	}
-
-	return parseInt(normalized, 16);
-}
 
 function isValidHttpUrl(input) {
 	try {

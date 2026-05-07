@@ -185,7 +185,7 @@ module.exports = {
 			saveSettings();
 
 			const embed = new EmbedBuilder()
-				.setColor(0x2ecc71)
+				.setColor(0x9c7453)
 				.setTitle('Keyword Role Added')
 				.setDescription(`When someone types \`${keyword}\`, they will receive ${roles.join(', ')}.`)
 				.setTimestamp();
@@ -211,7 +211,7 @@ module.exports = {
 			saveSettings();
 
 			const embed = new EmbedBuilder()
-				.setColor(0xe74c3c)
+				.setColor(0x9c7453)
 				.setTitle('Keyword Role Removed')
 				.setDescription(`The keyword \`${keyword}\` no longer gives a role.`)
 				.setTimestamp();
@@ -237,7 +237,7 @@ module.exports = {
 			}
 
 			const embed = new EmbedBuilder()
-				.setColor(0x3498db)
+				.setColor(0x9c7453)
 				.setTitle('Keyword Roles')
 				.setDescription(lines.join('\n').slice(0, 4000))
 				.setTimestamp();
@@ -281,7 +281,7 @@ async function checkKeywordAndAssignRole(message) {
 		await message.member.roles.add(missingRoles, `Keyword role triggered by ${messageContent}`);
 
 		const embed = new EmbedBuilder()
-			.setColor(0x2ecc71)
+			.setColor(0x9c7453)
 			.setDescription(`You received these roles in **${message.guild.name}**: ${missingRoles.map(role => `**${role.name}**`).join(', ')}.`)
 			.setFooter({ text: `Triggered by: ${messageContent}` })
 			.setTimestamp();

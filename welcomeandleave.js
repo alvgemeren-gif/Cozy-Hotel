@@ -17,7 +17,7 @@ module.exports = {
         
         // Create the welcome message
         const embed = new EmbedBuilder()
-            .setColor(0x95a5a6) // Ghostly gray color
+            .setColor(0x9c7453)
             .setTitle('Welcome to our hotel!')
             .setDescription(`Welcome, ${name}! We're glad to have you here.`)
             .setFooter({ 
@@ -50,7 +50,7 @@ module.exports = {
         
         // Create the departure message
         const embed = new EmbedBuilder()
-            .setColor(0x95a5a6) // Ghostly gray color
+            .setColor(0x9c7453)
             .setTitle('Departure from our hotel!')
             .setDescription(`Farewell, ${name}! We hope to see you again.`)
             .setFooter({ 
