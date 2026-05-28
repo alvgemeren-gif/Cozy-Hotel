@@ -9,7 +9,7 @@ const deploy = async () => {
     const commands = [];
     // Grab all the command files from the commands directory you created earlier
     const foldersPath = path.join(__dirname, '../commands');
-    const commandFolders = fs.readdirSync(foldersPath);
+    const commandFolders = fs.existsSync(foldersPath) ? fs.readdirSync(foldersPath) : [];
     
     for (const folder of commandFolders) {
         // Grab all the command files from the commands directory you created earlier
