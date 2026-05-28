@@ -1,11 +1,14 @@
 require('dotenv').config();
 const http = require('http');
-const deployCommands = require('./deploy/deployCommands');
 const { Client, EmbedBuilder, Events, GatewayIntentBits } = require('discord.js');
 
 const PORT = process.env.PORT || 3000;
-const BOT_TOKEN = process.env.CLIENT_TOKEN;
+const BOT_TOKEN = process.env.CLIENT_TOKEN || process.env.DISCORD_TOKEN;
 const WELCOME_CHANNEL_ID = process.env.WELCOME_CHANNEL_ID;
+
+if (!BOT_TOKEN) {
+	throw new Error('CLIENT_TOKEN or DISCORD_TOKEN is missing. Add it to Render environment variables or to a local .env file.');
+}
 
 http.createServer((_req, res) => {
 	res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -18,8 +21,6 @@ const client = new Client({
 		GatewayIntentBits.GuildMembers,
 	],
 });
-
-deployCommands();
 
 client.once(Events.ClientReady, c => {
 	console.log(`Ready! Logged in as ${c.user.tag}`);
