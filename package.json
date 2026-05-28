@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "app.js",
+  "packageManager": "npm@10.8.2",
   "engines": {
     "node": ">=18"
   },
