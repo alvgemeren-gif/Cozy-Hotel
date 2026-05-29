@@ -40,6 +40,7 @@ function deleteWelcomeConfig(guildId) {
 
 function formatWelcomeMessage(template, member) {
 	return template
+		.replaceAll('\\n', '\n')
 		.replaceAll('{user}', `${member}`)
 		.replaceAll('{username}', member.user.username)
 		.replaceAll('{server}', member.guild.name)
