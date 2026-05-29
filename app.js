@@ -100,6 +100,15 @@ client.on(Events.InteractionCreate, async interaction => {
 				await handler.handleButton(interaction);
 			}
 		}
+
+		if (interaction.isModalSubmit()) {
+			const [handlerName] = interaction.customId.split(':');
+			const handler = interaction.client.commands.get(handlerName);
+
+			if (handler?.handleModalSubmit) {
+				await handler.handleModalSubmit(interaction);
+			}
+		}
 	} catch (error) {
 		console.error(error);
 
