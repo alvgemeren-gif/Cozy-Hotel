@@ -4,6 +4,7 @@ const http = require('http');
 const path = require('path');
 const deployCommands = require('./deploy/deployCommands');
 const { Client, Collection, Events, GatewayIntentBits } = require('discord.js');
+const { formatWelcomeMessage, getWelcomeConfig } = require('./utils/welcomeConfig');
 
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.CLIENT_TOKEN || process.env.DISCORD_TOKEN;
@@ -20,6 +21,7 @@ http.createServer((_req, res) => {
 const client = new Client({
 	intents: [
 		GatewayIntentBits.Guilds,
+		GatewayIntentBits.GuildMembers,
 	],
 });
 
@@ -48,6 +50,23 @@ deployCommands();
 
 client.once(Events.ClientReady, c => {
 	console.log(`Ready! Logged in as ${c.user.tag}`);
+});
+
+client.on(Events.GuildMemberAdd, async member => {
+	const config = getWelcomeConfig(member.guild.id);
+
+	if (!config) {
+		return;
+	}
+
+	const channel = await member.guild.channels.fetch(config.channelId).catch(() => null);
+
+	if (!channel || !channel.isTextBased()) {
+		console.warn(`Welcome channel ${config.channelId} was not found or is not text-based.`);
+		return;
+	}
+
+	await channel.send(formatWelcomeMessage(config.message, member)).catch(console.error);
 });
 
 client.on(Events.InteractionCreate, async interaction => {
