@@ -72,6 +72,15 @@ client.on(Events.InteractionCreate, async interaction => {
 				await handler.handleSelectMenu(interaction);
 			}
 		}
+
+		if (interaction.isButton()) {
+			const [handlerName] = interaction.customId.split(':');
+			const handler = interaction.client.commands.get(handlerName);
+
+			if (handler?.handleButton) {
+				await handler.handleButton(interaction);
+			}
+		}
 	} catch (error) {
 		console.error(error);
 

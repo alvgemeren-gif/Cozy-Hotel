@@ -41,8 +41,14 @@ const deploy = async () => {
         try {
             console.log(`Started refreshing ${commands.length} application (/) commands.`);
     
-            const route = GUILD_ID
-                ? Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID)
+            const scopedGuildId = GUILD_ID && GUILD_ID !== CLIENT_ID ? GUILD_ID : null;
+
+            if (GUILD_ID && GUILD_ID === CLIENT_ID) {
+                console.warn('Ignoring GUILD_ID because it matches CLIENT_ID. Set GUILD_ID to your Discord server id for guild commands.');
+            }
+
+            const route = scopedGuildId
+                ? Routes.applicationGuildCommands(CLIENT_ID, scopedGuildId)
                 : Routes.applicationCommands(CLIENT_ID);
 
             const data = await rest.put(
