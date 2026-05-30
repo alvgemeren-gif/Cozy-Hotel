@@ -4,6 +4,8 @@ const http = require('http');
 const path = require('path');
 const deployCommands = require('./deploy/deployCommands');
 const { Client, Collection, Events, GatewayIntentBits } = require('discord.js');
+const { getAutoroleConfig } = require('./utils/autoroleConfig');
+const { handleLevelMessage } = require('./utils/levelSystem');
 const { formatWelcomeMessage, getWelcomeConfig } = require('./utils/welcomeConfig');
 
 const PORT = process.env.PORT || 3000;
@@ -22,6 +24,7 @@ const client = new Client({
 	intents: [
 		GatewayIntentBits.Guilds,
 		GatewayIntentBits.GuildMembers,
+		GatewayIntentBits.GuildMessages,
 	],
 });
 
@@ -53,6 +56,24 @@ client.once(Events.ClientReady, c => {
 });
 
 client.on(Events.GuildMemberAdd, async member => {
+	const autoroleConfig = getAutoroleConfig(member.guild.id);
+
+	if (autoroleConfig.roleIds.length) {
+		const roles = [];
+
+		for (const roleId of autoroleConfig.roleIds) {
+			const role = await member.guild.roles.fetch(roleId).catch(() => null);
+
+			if (role) {
+				roles.push(role);
+			}
+		}
+
+		if (roles.length) {
+			await member.roles.add(roles).catch(console.error);
+		}
+	}
+
 	const config = getWelcomeConfig(member.guild.id);
 
 	if (!config) {
@@ -68,6 +89,8 @@ client.on(Events.GuildMemberAdd, async member => {
 
 	await channel.send(formatWelcomeMessage(config.message, member)).catch(console.error);
 });
+
+client.on(Events.MessageCreate, handleLevelMessage);
 
 client.on(Events.InteractionCreate, async interaction => {
 	try {
