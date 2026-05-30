@@ -27,7 +27,7 @@ function writeData(data) {
 
 function getGuildData(data, guildId) {
 	if (!data.guilds[guildId]) {
-		data.guilds[guildId] = { users: {}, rewards: {} };
+		data.guilds[guildId] = { users: {}, rewards: {}, announcementChannelId: null };
 	}
 
 	return data.guilds[guildId];
@@ -50,6 +50,29 @@ function levelFromXp(xp) {
 function getLevelRewards(guildId) {
 	const data = readData();
 	return getGuildData(data, guildId).rewards;
+}
+
+function getLevelSettings(guildId) {
+	const data = readData();
+	const guildData = getGuildData(data, guildId);
+
+	return {
+		announcementChannelId: guildData.announcementChannelId || null,
+	};
+}
+
+function setLevelAnnouncementChannel(guildId, channelId) {
+	const data = readData();
+	const guildData = getGuildData(data, guildId);
+	guildData.announcementChannelId = channelId;
+	writeData(data);
+}
+
+function deleteLevelAnnouncementChannel(guildId) {
+	const data = readData();
+	const guildData = getGuildData(data, guildId);
+	guildData.announcementChannelId = null;
+	writeData(data);
 }
 
 function setLevelReward(guildId, level, roleIds) {
@@ -132,14 +155,21 @@ async function handleLevelMessage(message) {
 	const rewardText = rewardRoles.length
 		? ` Beloning: ${rewardRoles.map(role => `${role}`).join(', ')}`
 		: '';
+	const announcementChannel = guildData.announcementChannelId
+		? await message.guild.channels.fetch(guildData.announcementChannelId).catch(() => null)
+		: message.channel;
+	const targetChannel = announcementChannel?.isTextBased() ? announcementChannel : message.channel;
 
-	await message.channel.send(`${message.author} is level ${newLevel}!${rewardText}`).catch(console.error);
+	await targetChannel.send(`${message.author} is level ${newLevel}!${rewardText}`).catch(console.error);
 }
 
 module.exports = {
 	deleteLevelReward,
+	deleteLevelAnnouncementChannel,
 	getLevelRewards,
+	getLevelSettings,
 	getUserLevel,
 	handleLevelMessage,
+	setLevelAnnouncementChannel,
 	setLevelReward,
 };

@@ -1,11 +1,15 @@
 const {
+	ChannelType,
 	PermissionFlagsBits,
 	SlashCommandBuilder,
 } = require('discord.js');
 const {
+	deleteLevelAnnouncementChannel,
 	deleteLevelReward,
 	getLevelRewards,
+	getLevelSettings,
 	getUserLevel,
+	setLevelAnnouncementChannel,
 	setLevelReward,
 } = require('../../utils/levelSystem');
 
@@ -29,6 +33,23 @@ const data = new SlashCommandBuilder()
 		subcommand
 			.setName('beloningen')
 			.setDescription('Bekijk alle level beloningen.')
+	)
+	.addSubcommand(subcommand =>
+		subcommand
+			.setName('meldingen-kanaal')
+			.setDescription('Stel in waar level-up meldingen geplaatst worden.')
+			.addChannelOption(option =>
+				option
+					.setName('kanaal')
+					.setDescription('Kanaal voor level-up meldingen.')
+					.addChannelTypes(ChannelType.GuildText)
+					.setRequired(true)
+			)
+	)
+	.addSubcommand(subcommand =>
+		subcommand
+			.setName('meldingen-uit')
+			.setDescription('Gebruik weer het kanaal waar iemand levelt voor level-up meldingen.')
 	)
 	.addSubcommand(subcommand => {
 		subcommand
@@ -85,22 +106,24 @@ module.exports = {
 
 		if (subcommand === 'beloningen') {
 			const rewards = getLevelRewards(interaction.guildId);
+			const settings = getLevelSettings(interaction.guildId);
 			const entries = Object.entries(rewards)
 				.sort(([levelA], [levelB]) => Number(levelA) - Number(levelB));
+			const channelLine = settings.announcementChannelId
+				? `Level-up kanaal: <#${settings.announcementChannelId}>`
+				: 'Level-up kanaal: huidig berichtkanaal';
 
 			if (!entries.length) {
 				await interaction.reply({
-					content: 'Er zijn nog geen level beloningen ingesteld.',
-					ephemeral: true,
+					content: `${channelLine}\nEr zijn nog geen level beloningen ingesteld.`,
 				});
 				return;
 			}
 
 			await interaction.reply({
-				content: entries
+				content: `${channelLine}\n` + entries
 					.map(([level, roleIds]) => `Level ${level}: ${roleIds.map(roleId => `<@&${roleId}>`).join(', ')}`)
 					.join('\n'),
-				ephemeral: true,
 			});
 			return;
 		}
@@ -108,6 +131,27 @@ module.exports = {
 		if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageRoles)) {
 			await interaction.reply({
 				content: 'Je hebt Manage Roles nodig om level beloningen te beheren.',
+				ephemeral: true,
+			});
+			return;
+		}
+
+		if (subcommand === 'meldingen-kanaal') {
+			const channel = interaction.options.getChannel('kanaal');
+			setLevelAnnouncementChannel(interaction.guildId, channel.id);
+
+			await interaction.reply({
+				content: `Level-up meldingen worden nu geplaatst in ${channel}.`,
+				ephemeral: true,
+			});
+			return;
+		}
+
+		if (subcommand === 'meldingen-uit') {
+			deleteLevelAnnouncementChannel(interaction.guildId);
+
+			await interaction.reply({
+				content: 'Level-up meldingen worden nu weer geplaatst in het kanaal waar iemand levelt.',
 				ephemeral: true,
 			});
 			return;
